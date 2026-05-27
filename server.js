@@ -66,12 +66,18 @@ app.post('/api/auth/login', (req, res) => {
   });
 
   // Set secure HttpOnly cookie containing the session ID
-  res.cookie('session_id', sessionId, {
+  const cookieOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-  });
+  };
+
+  if (process.env.COOKIE_DOMAIN) {
+    cookieOptions.domain = process.env.COOKIE_DOMAIN;
+  }
+
+  res.cookie('session_id', sessionId, cookieOptions);
 
   console.log(`[AUTH] Session created for account ${accounts[0].accountId}`);
   return res.json({
