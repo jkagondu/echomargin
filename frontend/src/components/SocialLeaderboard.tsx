@@ -54,7 +54,7 @@ export default function SocialLeaderboard() {
             setCopyRatio(String(data.link.copyRatio));
             setMaxAllocation(String(data.link.maxAllocation));
             setCopyTradingActive(true);
-            setSharingUrl(`${backendUrl.replace(':5000', ':3000')}/?copyId=${copyId}`);
+            setSharingUrl(`${window.location.origin}/?copyId=${copyId}`);
             alert(`Successfully loaded and activated copy settings for Master Account: ${data.link.masterId}`);
           }
         })
