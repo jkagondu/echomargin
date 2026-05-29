@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useDerivWebSocket } from '@/hooks/useDerivWebSocket';
+import Logo from '@/components/Logo';
 import { LogOut, Wallet, ChevronDown, Activity, Wifi, WifiOff } from 'lucide-react';
 
 export default function Navbar() {
@@ -39,17 +40,7 @@ export default function Navbar() {
   return (
     <nav className="bg-zinc-900 border-b border-zinc-800 px-6 py-4 flex items-center justify-between sticky top-0 z-50">
       {/* Brand Logo */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-          <span className="font-extrabold text-xl text-zinc-950">E</span>
-        </div>
-        <div>
-          <span className="font-bold text-xl tracking-tight bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">
-            EchoMargin
-          </span>
-          <span className="text-[10px] text-zinc-500 block font-mono">WS SECURE BRIDGE</span>
-        </div>
-      </div>
+      <Logo size="md" />
 
       {/* Middle: Connection Status */}
       <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-950 border border-zinc-800 text-xs font-medium">
