@@ -3,7 +3,7 @@
 import React from 'react';
 
 export default function LoginButton() {
-  const appId = process.env.NEXT_PUBLIC_DERIV_APP_ID || '33nlevTU3BgvBLPY6vMVb';
+  const appId = process.env.NEXT_PUBLIC_DERIV_APP_ID || '33DYobo60p3hLWAOB3Sm5';
   const oauthUrlBase = process.env.NEXT_PUBLIC_DERIV_OAUTH_URL || 'https://oauth.deriv.com/oauth2/authorize';
 
   const handleLogin = () => {
