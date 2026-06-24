@@ -21,6 +21,9 @@ interface DerivWebSocketContextType {
   wsLogs: { id: string; type: 'send' | 'recv'; content: string; timestamp: number }[];
   demoMode: boolean;
   enableDemoMode: () => void;
+  joinCopyRoom: (roomId: string) => void;
+  broadcastTradeSignal: (roomId: string, trade: any) => void;
+  latestCopySignal: any | null;
 }
 
 const DerivWebSocketContext = createContext<DerivWebSocketContextType | null>(null);
@@ -35,6 +38,7 @@ export function DerivWebSocketProvider({ children }: { children: React.ReactNode
   const [accountsList, setAccountsList] = useState<{ accountId: string; currency: string }[]>([]);
   const [activeTick, setActiveTick] = useState<any>(null);
   const [wsLogs, setWsLogs] = useState<{ id: string; type: 'send' | 'recv'; content: string; timestamp: number }[]>([]);
+  const [latestCopySignal, setLatestCopySignal] = useState<any | null>(null);
   
   const [demoMode, setDemoMode] = useState(false);
   const mockIntervals = useRef<Map<string, NodeJS.Timeout>>(new Map());
@@ -140,6 +144,12 @@ export function DerivWebSocketProvider({ children }: { children: React.ReactNode
           const response = JSON.parse(rawData);
 
           if (response.msg_type === 'ping') {
+            return;
+          }
+
+          if (response.msg_type === 'copy_signal') {
+            console.log('[WS CONTEXT] Received Copy Signal:', response.trade);
+            setLatestCopySignal({ ...response.trade, _signalId: Date.now() });
             return;
           }
 
@@ -494,6 +504,18 @@ export function DerivWebSocketProvider({ children }: { children: React.ReactNode
     contractCallbacks.current.delete(contractId);
   };
 
+  const joinCopyRoom = (roomId: string) => {
+    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+      ws.current.send(JSON.stringify({ echo_action: 'join_copy_room', roomId }));
+    }
+  };
+
+  const broadcastTradeSignal = (roomId: string, trade: any) => {
+    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+      ws.current.send(JSON.stringify({ echo_action: 'broadcast_trade', roomId, trade }));
+    }
+  };
+
   useEffect(() => {
     connect();
 
@@ -529,7 +551,10 @@ export function DerivWebSocketProvider({ children }: { children: React.ReactNode
         logout,
         wsLogs,
         demoMode,
-        enableDemoMode
+        enableDemoMode,
+        joinCopyRoom,
+        broadcastTradeSignal,
+        latestCopySignal
       }}
     >
       {children}

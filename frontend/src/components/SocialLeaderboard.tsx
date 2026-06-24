@@ -23,7 +23,6 @@ const LEADERBOARD_DATA: LeaderboardEntry[] = [
 ];
 
 export default function SocialLeaderboard() {
-  const { activeAccount } = useDerivWebSocket();
   
   // Copy trading settings
   const [copyTradingActive, setCopyTradingActive] = useState(false);
@@ -34,70 +33,81 @@ export default function SocialLeaderboard() {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   
   const [copiedLogs, setCopiedLogs] = useState<Array<{time: string, type: 'info' | 'success' | 'error', prefix: string, message: string}>>([]);
+  
+  const { activeAccount, joinCopyRoom, latestCopySignal, sendRequest, subscribeContract } = useDerivWebSocket();
 
-  // Listen to live trade events for copy simulation
+  // Join the copy room when activated
   useEffect(() => {
-    if (!copyTradingActive) {
-      setCopiedLogs([]);
-      return;
+    if (copyTradingActive && masterId) {
+      joinCopyRoom(masterId);
     }
+  }, [copyTradingActive, masterId, joinCopyRoom]);
 
-    const handleTradeEvent = (e: Event) => {
-      const trade = (e as CustomEvent).detail;
-      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      const multiplier = parseFloat(copyRatio) || 1.0;
-      const copiedStake = (trade.stake * multiplier).toFixed(2);
+  // Execute trades when signals arrive
+  const executeCopyTrade = async (signalTrade: any) => {
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const multiplier = parseFloat(copyRatio) || 1.0;
+    const copiedStake = parseFloat((signalTrade.stake * multiplier).toFixed(2));
 
-      if (trade.status === 'purchasing') {
-        setCopiedLogs(prev => [
-          {
-            time: timeStr,
-            type: 'info',
-            prefix: '[COPIER SIGNAL]',
-            message: `Detected Master order: ${trade.type} on ${trade.symbol.replace('R_', 'Volatility ')}. Scaling and routing order...`
-          },
-          ...prev
-        ]);
-      } else if (trade.status === 'open') {
-        setCopiedLogs(prev => [
-          {
-            time: timeStr,
-            type: 'info',
-            prefix: '[COPIER PLACED]',
-            message: `Successfully executed copy-trade on ${trade.symbol.replace('R_', 'Volatility ')} with stake $${copiedStake} USD. Entry Spot: ${trade.buyPrice || 'Calculating...'}`
-          },
-          ...prev
-        ]);
-      } else if (trade.status === 'won') {
-        const profit = (trade.profit || 0) * multiplier;
-        setCopiedLogs(prev => [
-          {
-            time: timeStr,
-            type: 'success',
-            prefix: '[COPIER SETTLED]',
-            message: `Master contract won! Copied payout settled. Net Profit: +$${profit.toFixed(2)} USD.`
-          },
-          ...prev
-        ]);
-      } else if (trade.status === 'lost') {
-        const loss = Math.abs((trade.profit || -trade.stake) * multiplier);
-        setCopiedLogs(prev => [
-          {
-            time: timeStr,
-            type: 'error',
-            prefix: '[COPIER SETTLED]',
-            message: `Master contract lost. Copied loss recorded. Net Loss: -$${loss.toFixed(2)} USD.`
-          },
-          ...prev
-        ]);
-      }
-    };
+    setCopiedLogs(prev => [
+      { time: timeStr, type: 'info', prefix: '[COPIER SIGNAL]', message: `Detected Master order: ${signalTrade.type} on ${signalTrade.symbol.replace('R_', 'Volatility ')}. Scaling and routing order...` },
+      ...prev
+    ]);
 
-    window.addEventListener('deriv-trade-event', handleTradeEvent);
-    return () => {
-      window.removeEventListener('deriv-trade-event', handleTradeEvent);
-    };
-  }, [copyTradingActive, copyRatio]);
+    try {
+      const proposal = await sendRequest({
+        proposal: 1,
+        amount: copiedStake,
+        basis: 'stake',
+        contract_type: signalTrade.type,
+        currency: activeAccount?.currency || 'USD',
+        duration: 5,
+        duration_unit: 't',
+        symbol: signalTrade.symbol
+      });
+
+      if (proposal.error) throw new Error(proposal.error.message);
+
+      const purchase = await sendRequest({
+        buy: proposal.proposal.id,
+        price: copiedStake
+      });
+
+      if (purchase.error) throw new Error(purchase.error.message);
+
+      const contractId = String(purchase.buy.contract_id);
+      
+      setCopiedLogs(prev => [
+        { time: new Date().toLocaleTimeString(), type: 'info', prefix: '[COPIER PLACED]', message: `Successfully executed copy-trade on ${signalTrade.symbol} with stake $${copiedStake}.` },
+        ...prev
+      ]);
+
+      const openContract = await sendRequest({
+        proposal_open_contract: 1,
+        contract_id: purchase.buy.contract_id,
+        subscribe: 1
+      });
+
+      subscribeContract(contractId, (contract) => {
+        if (contract.is_sold === 1) {
+           const profit = parseFloat(contract.profit);
+           if (profit >= 0) {
+              setCopiedLogs(p => [{ time: new Date().toLocaleTimeString(), type: 'success', prefix: '[COPIER SETTLED]', message: `Master contract won! Net Profit: +$${profit.toFixed(2)} USD.` }, ...p]);
+           } else {
+              setCopiedLogs(p => [{ time: new Date().toLocaleTimeString(), type: 'error', prefix: '[COPIER SETTLED]', message: `Master contract lost. Net Loss: -$${Math.abs(profit).toFixed(2)} USD.` }, ...p]);
+           }
+        }
+      });
+    } catch (e: any) {
+      setCopiedLogs(prev => [{ time: new Date().toLocaleTimeString(), type: 'error', prefix: '[COPIER ERROR]', message: `Execution failed: ${e.message}` }, ...prev]);
+    }
+  };
+
+  useEffect(() => {
+    if (copyTradingActive && latestCopySignal) {
+      executeCopyTrade(latestCopySignal);
+    }
+  }, [latestCopySignal, copyTradingActive]);
 
   // Check URL query parameters for ?copyId= on mount
   useEffect(() => {

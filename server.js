@@ -19,6 +19,9 @@ const DERIV_APP_ID = process.env.DERIV_APP_ID || '33nlevTU3BgvBLPY6vMVb';
 // In production, use Redis or a database session store
 const sessions = new Map();
 
+// Copy Trading Rooms: room_id -> Set of connected clientWs
+const copyRooms = new Map();
+
 // Helper to parse cookies from headers
 function parseCookies(cookieHeader) {
   const list = {};
@@ -379,10 +382,41 @@ wss.on('connection', (clientWs, req, sessionId) => {
 
     try {
       const parsed = JSON.parse(message.toString());
+      
       // Prevent client from manually calling authorize, since we handle it server-side
       if (parsed.authorize) {
         console.log('[WS BRIDGE] Client tried to authorize manually. Ignored.');
         return;
+      }
+
+      // Intercept custom EchoMargin actions (Pub/Sub for copy trading)
+      if (parsed.echo_action) {
+        if (parsed.echo_action === 'join_copy_room') {
+          const roomId = parsed.roomId;
+          if (!copyRooms.has(roomId)) copyRooms.set(roomId, new Set());
+          copyRooms.get(roomId).add(clientWs);
+          
+          // Attach room info to socket for cleanup
+          clientWs.currentCopyRoom = roomId;
+          console.log(`[WS BRIDGE] Client joined copy room: ${roomId}`);
+        }
+        else if (parsed.echo_action === 'broadcast_trade') {
+          const roomId = parsed.roomId;
+          if (copyRooms.has(roomId)) {
+            console.log(`[WS BRIDGE] Broadcasting trade signal to room ${roomId}`);
+            const signal = JSON.stringify({
+              msg_type: 'copy_signal',
+              trade: parsed.trade
+            });
+            // Send to all clients in the room EXCEPT the sender
+            copyRooms.get(roomId).forEach(ws => {
+              if (ws !== clientWs && ws.readyState === WebSocket.OPEN) {
+                ws.send(signal);
+              }
+            });
+          }
+        }
+        return; // Do NOT forward echo_actions to Deriv
       }
       
       derivWs.send(message.toString());
@@ -393,6 +427,12 @@ wss.on('connection', (clientWs, req, sessionId) => {
 
   clientWs.on('close', (code, reason) => {
     console.log(`[WS BRIDGE] Client connection closed. Code: ${code}`);
+    
+    // Remove from copy rooms
+    if (clientWs.currentCopyRoom && copyRooms.has(clientWs.currentCopyRoom)) {
+      copyRooms.get(clientWs.currentCopyRoom).delete(clientWs);
+    }
+
     if (derivWs.readyState === WebSocket.OPEN || derivWs.readyState === WebSocket.CONNECTING) {
       derivWs.close();
     }

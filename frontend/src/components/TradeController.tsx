@@ -24,7 +24,7 @@ interface TradeControllerProps {
 }
 
 export default function TradeController({ symbol, onTradeStarted, onTradeUpdated }: TradeControllerProps) {
-  const { sendRequest, subscribeContract, unsubscribeContract, activeAccount, authorized, isConnected } = useDerivWebSocket();
+  const { sendRequest, subscribeContract, unsubscribeContract, activeAccount, authorized, isConnected, broadcastTradeSignal } = useDerivWebSocket();
   const [stake, setStake] = useState('10');
   const [duration, setDuration] = useState('5');
   const [leverage, setLeverage] = useState(20);
@@ -101,6 +101,9 @@ export default function TradeController({ symbol, onTradeStarted, onTradeUpdated
     };
     onTradeStarted(initialTrade);
     window.dispatchEvent(new CustomEvent('deriv-trade-event', { detail: initialTrade }));
+
+    // Broadcast the trade to anyone copying this account
+    broadcastTradeSignal(activeAccount.accountId, initialTrade);
 
     try {
       // 1. Get contract proposal from Deriv

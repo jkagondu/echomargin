@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useDerivWebSocket } from '@/hooks/useDerivWebSocket';
 import { TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, Activity } from 'lucide-react';
+import { createChart, ColorType, IChartApi, ISeriesApi } from 'lightweight-charts';
 
 const SUPPORTED_ASSETS = [
   { symbol: 'R_10', name: 'Volatility 10 Index' },
@@ -26,7 +27,57 @@ export default function TickerCard({ activeSymbol, onSymbolChange }: TickerCardP
   const [showSMA, setShowSMA] = useState(false);
   const [showEMA, setShowEMA] = useState(false);
   
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const chartContainerRef = useRef<HTMLDivElement | null>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const currentCandleRef = useRef<any>(null);
+
+  // Initialize Lightweight Chart
+  useEffect(() => {
+    if (!chartContainerRef.current) return;
+    
+    const chart = createChart(chartContainerRef.current, {
+      layout: {
+        background: { type: ColorType.Solid, color: 'transparent' },
+        textColor: '#A1A1AA', // zinc-400
+      },
+      grid: {
+        vertLines: { color: 'rgba(39, 39, 42, 0.5)' }, // zinc-800
+        horzLines: { color: 'rgba(39, 39, 42, 0.5)' },
+      },
+      timeScale: {
+        timeVisible: true,
+        secondsVisible: true,
+        borderColor: 'rgba(39, 39, 42, 1)',
+      },
+      rightPriceScale: {
+        borderColor: 'rgba(39, 39, 42, 1)',
+      },
+    });
+
+    const candlestickSeries = chart.addCandlestickSeries({
+      upColor: '#10b981', // emerald-500
+      downColor: '#f43f5e', // rose-500
+      borderVisible: false,
+      wickUpColor: '#10b981',
+      wickDownColor: '#f43f5e',
+    });
+
+    chartRef.current = chart;
+    seriesRef.current = candlestickSeries;
+
+    const handleResize = () => {
+      if (chartContainerRef.current) {
+        chart.applyOptions({ width: chartContainerRef.current.clientWidth });
+      }
+    };
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      chart.remove();
+    };
+  }, []);
 
   // Subscribe to WebSocket tick feed
   useEffect(() => {
@@ -50,16 +101,39 @@ export default function TickerCard({ activeSymbol, onSymbolChange }: TickerCardP
           else if (price < prev) setPriceDirection('down');
           else setPriceDirection('flat');
         }
+        if (prev === null) {
+          // Set initial price to calculate % change
+          setPriceHistory([price]);
+        }
         return price;
       });
 
-      setPriceHistory(history => {
-        const updated = [...history, price];
-        // Limit history to 60 ticks
-        if (updated.length > 60) updated.shift();
-        return updated;
-      });
+      // Aggregate into 5-second candles
+      const timeSec = tickData.epoch || Math.floor(Date.now() / 1000);
+      const candleDuration = 5; 
+      const candleTime = Math.floor(timeSec / candleDuration) * candleDuration;
+
+      // Ensure time moves strictly forward
+      if (
+        !currentCandleRef.current || 
+        candleTime > currentCandleRef.current.time
+      ) {
+         currentCandleRef.current = { time: candleTime, open: price, high: price, low: price, close: price };
+      } else if (candleTime === currentCandleRef.current.time) {
+         currentCandleRef.current.high = Math.max(currentCandleRef.current.high, price);
+         currentCandleRef.current.low = Math.min(currentCandleRef.current.low, price);
+         currentCandleRef.current.close = price;
+      }
+      
+      if (seriesRef.current && currentCandleRef.current) {
+        seriesRef.current.update(currentCandleRef.current);
+      }
     };
+
+    if (seriesRef.current) {
+      seriesRef.current.setData([]);
+      currentCandleRef.current = null;
+    }
 
     // Trigger subscription
     subscribeTicks(activeSymbol, handleNewTick)
@@ -71,126 +145,6 @@ export default function TickerCard({ activeSymbol, onSymbolChange }: TickerCardP
       unsubscribeTicks(activeSymbol);
     };
   }, [activeSymbol, isConnected]);
-
-  // Render canvas sparkline
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || priceHistory.length < 2) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Handle high DPI displays
-    const dpr = window.devicePixelRatio || 1;
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
-    ctx.scale(dpr, dpr);
-
-    const width = rect.width;
-    const height = rect.height;
-
-    ctx.clearRect(0, 0, width, height);
-
-    const min = Math.min(...priceHistory);
-    const max = Math.max(...priceHistory);
-    const range = max - min || 1;
-
-    // Draw grid lines
-    ctx.strokeStyle = '#18181b'; // zinc-900
-    ctx.lineWidth = 1;
-    for (let i = 1; i < 4; i++) {
-      const y = (height / 4) * i;
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(width, y);
-      ctx.stroke();
-    }
-
-    // Draw SMA if enabled
-    if (showSMA && priceHistory.length >= 14) {
-      ctx.beginPath();
-      priceHistory.forEach((price, index) => {
-        if (index < 13) return;
-        const sum = priceHistory.slice(index - 13, index + 1).reduce((a, b) => a + b, 0);
-        const smaValue = sum / 14;
-        const x = (width / (priceHistory.length - 1)) * index;
-        const y = height - 12 - ((smaValue - min) / range) * (height - 24);
-        if (index === 13) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
-      ctx.strokeStyle = '#f59e0b'; // amber-500
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-    }
-
-    // Draw EMA if enabled
-    if (showEMA && priceHistory.length >= 14) {
-      ctx.beginPath();
-      let prevEma = priceHistory[0];
-      const k = 2 / (14 + 1);
-      priceHistory.forEach((price, index) => {
-        const emaValue = price * k + prevEma * (1 - k);
-        prevEma = emaValue;
-        if (index < 13) return;
-        const x = (width / (priceHistory.length - 1)) * index;
-        const y = height - 12 - ((emaValue - min) / range) * (height - 24);
-        if (index === 13) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
-      ctx.strokeStyle = '#3b82f6'; // blue-500
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-    }
-
-    // Prepare line path
-    ctx.beginPath();
-    priceHistory.forEach((price, index) => {
-      const x = (width / (priceHistory.length - 1)) * index;
-      // Flip vertical coords (y=0 is top) and leave 10px padding
-      const y = height - 12 - ((price - min) / range) * (height - 24);
-      
-      if (index === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    });
-
-    // Color gradient based on direction
-    const isUp = priceDirection === 'up' || (priceHistory[priceHistory.length - 1] >= priceHistory[0]);
-    const strokeColor = isUp ? '#10b981' : '#f43f5e'; // emerald-500 or rose-500
-    
-    // Draw line
-    ctx.strokeStyle = strokeColor;
-    ctx.lineWidth = 2.5;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.stroke();
-
-    // Fill area below the curve
-    ctx.lineTo((width / (priceHistory.length - 1)) * (priceHistory.length - 1), height);
-    ctx.lineTo(0, height);
-    ctx.closePath();
-    
-    const fillGradient = ctx.createLinearGradient(0, 0, 0, height);
-    fillGradient.addColorStop(0, isUp ? 'rgba(16, 185, 129, 0.15)' : 'rgba(244, 63, 94, 0.15)');
-    fillGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = fillGradient;
-    ctx.fill();
-
-    // Draw last point glowing dot
-    const lastX = width;
-    const lastY = height - 12 - ((priceHistory[priceHistory.length - 1] - min) / range) * (height - 24);
-    
-    ctx.beginPath();
-    ctx.arc(lastX - 2, lastY, 5, 0, Math.PI * 2);
-    ctx.fillStyle = strokeColor;
-    ctx.fill();
-
-    ctx.beginPath();
-    ctx.arc(lastX - 2, lastY, 12, 0, Math.PI * 2);
-    ctx.fillStyle = isUp ? 'rgba(16, 185, 129, 0.25)' : 'rgba(244, 63, 94, 0.25)';
-    ctx.fill();
-
-  }, [priceHistory, priceDirection, showSMA, showEMA]);
 
   // Calculate statistics
   const currentPrice = currentTick ? parseFloat(currentTick.quote) : null;
@@ -280,37 +234,9 @@ export default function TickerCard({ activeSymbol, onSymbolChange }: TickerCardP
         </div>
       </div>
 
-      {/* Sparkline Canvas Chart */}
-      <div className="flex-1 w-full bg-zinc-950/40 border border-zinc-800/40 rounded-xl overflow-hidden mt-2 p-1.5 relative">
-        {priceHistory.length < 2 ? (
-          <div className="absolute inset-0 flex items-center justify-center text-zinc-600 text-xs font-semibold">
-            Accumulating tick data for chart...
-          </div>
-        ) : (
-          <div className="absolute top-2 left-2 flex gap-2 z-20">
-            <button
-              onClick={() => setShowSMA(!showSMA)}
-              className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase transition-all cursor-pointer border ${
-                showSMA
-                  ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-                  : 'bg-zinc-950/80 text-zinc-500 border-zinc-800 hover:border-zinc-700'
-              }`}
-            >
-              SMA (14)
-            </button>
-            <button
-              onClick={() => setShowEMA(!showEMA)}
-              className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase transition-all cursor-pointer border ${
-                showEMA
-                  ? 'bg-blue-500/10 text-blue-400 border-blue-500/30'
-                  : 'bg-zinc-950/80 text-zinc-500 border-zinc-800 hover:border-zinc-700'
-              }`}
-            >
-              EMA (14)
-            </button>
-          </div>
-        )}
-        <canvas ref={canvasRef} className="w-full h-full" />
+      {/* Lightweight Candlestick Chart */}
+      <div className="flex-1 w-full bg-zinc-950/40 border border-zinc-800/40 rounded-xl mt-2 relative">
+        <div ref={chartContainerRef} className="w-full h-full rounded-xl overflow-hidden" />
       </div>
     </div>
   );
