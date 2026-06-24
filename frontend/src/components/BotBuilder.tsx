@@ -15,7 +15,7 @@ export default function BotBuilder({ symbol }: { symbol: string }) {
   const { sendRequest, subscribeTicks, unsubscribeTicks, subscribeContract, unsubscribeContract, activeAccount, authorized, isConnected } = useDerivWebSocket();
 
   // Bot Configuration State
-  const [strategy, setStrategy] = useState<'custom' | 'martingale' | 'dalembert'>('martingale');
+  const [strategy, setStrategy] = useState<'custom' | 'martingale' | 'dalembert' | 'scanner_sync'>('martingale');
   const [baseStake, setBaseStake] = useState('2');
   const [takeProfit, setTakeProfit] = useState('20');
   const [stopLoss, setStopLoss] = useState('15');
@@ -150,7 +150,7 @@ export default function BotBuilder({ symbol }: { symbol: string }) {
 
     const price = parseFloat(tick.quote);
     consecutiveTickHistory.current.push(price);
-    if (consecutiveTickHistory.current.length > 10) consecutiveTickHistory.current.shift();
+    if (consecutiveTickHistory.current.length > 30) consecutiveTickHistory.current.shift();
 
     if (consecutiveTickHistory.current.length < 2) return;
 
@@ -173,6 +173,35 @@ export default function BotBuilder({ symbol }: { symbol: string }) {
         if (matches) {
           shouldTrade = true;
           type = actionType;
+        }
+      }
+    } else if (strategy === 'scanner_sync') {
+      // Internal Scanner Sync Logic (RSI-14 Based)
+      const history = consecutiveTickHistory.current;
+      if (history.length >= 15) {
+        let gains = 0;
+        let losses = 0;
+        for (let i = 1; i < 15; i++) {
+          const diff = history[history.length - 15 + i] - history[history.length - 15 + i - 1];
+          if (diff > 0) gains += diff;
+          else losses -= diff;
+        }
+        
+        let rsi = 100;
+        if (losses !== 0) {
+          const rs = gains / losses;
+          rsi = 100 - 100 / (1 + rs);
+        }
+
+        // Trigger Trades on Oversold/Overbought Signals
+        if (rsi <= 30) {
+          addLog(`Scanner Sync: RSI is Oversold (${rsi.toFixed(1)}). Triggering STRONG BUY!`, 'warn');
+          shouldTrade = true;
+          type = 'CALL';
+        } else if (rsi >= 70) {
+          addLog(`Scanner Sync: RSI is Overbought (${rsi.toFixed(1)}). Triggering STRONG SELL!`, 'warn');
+          shouldTrade = true;
+          type = 'PUT';
         }
       }
     } else {
@@ -541,6 +570,7 @@ export default function BotBuilder({ symbol }: { symbol: string }) {
               >
                 <option value="martingale">Classic Martingale (Double Loss)</option>
                 <option value="dalembert">D'Alembert (Incremental Stake Adjust)</option>
+                <option value="scanner_sync">Scanner Sync (RSI Overbought/Oversold)</option>
                 <option value="custom">Custom Condition Strategy</option>
               </select>
             </div>
