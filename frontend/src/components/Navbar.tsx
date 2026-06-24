@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useDerivWebSocket } from '@/hooks/useDerivWebSocket';
 import Logo from '@/components/Logo';
-import { LogOut, Wallet, ChevronDown, Activity, Wifi, WifiOff } from 'lucide-react';
+import { LogOut, Wallet, ChevronDown, Activity, Wifi, WifiOff, Shield } from 'lucide-react';
 
 export default function Navbar() {
   const {
@@ -18,6 +18,7 @@ export default function Navbar() {
   } = useDerivWebSocket();
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [riskProfile, setRiskProfile] = useState<'low' | 'medium' | 'high'>('low');
 
   const handleAccountSwitch = async (accountId: string) => {
     setDropdownOpen(false);
@@ -38,31 +39,59 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="bg-zinc-900 border-b border-zinc-800 px-6 py-4 flex items-center justify-between sticky top-0 z-50">
+    <nav className="bg-zinc-900/60 backdrop-blur-md border-b border-zinc-800 px-6 py-4 flex items-center justify-between sticky top-0 z-50">
       {/* Brand Logo */}
       <Logo size="md" />
 
-      {/* Middle: Connection Status */}
-      <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-950 border border-zinc-800 text-xs font-medium">
-        {isConnecting ? (
-          <>
-            <Activity className="w-4 h-4 text-amber-500 animate-pulse" />
-            <span className="text-amber-500">Connecting proxy...</span>
-          </>
-        ) : isConnected ? (
-          <>
-            <Wifi className="w-4 h-4 text-emerald-400" />
-            <span className="text-zinc-400">
-              Proxy <span className="text-emerald-400 font-bold">Connected</span>
-            </span>
-          </>
-        ) : (
-          <>
-            <WifiOff className="w-4 h-4 text-rose-500" />
-            <span className="text-rose-500">Disconnected</span>
-          </>
-        )}
-      </div>
+      {/* Middle: Connection Status & Global Risk Settings */}
+      {authorized && (
+        <div className="hidden md:flex items-center gap-4">
+          {/* Connection status */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-950 border border-zinc-850 text-xs font-medium">
+            {isConnecting ? (
+              <>
+                <Activity className="w-4 h-4 text-amber-500 animate-pulse" />
+                <span className="text-amber-500">Connecting proxy...</span>
+              </>
+            ) : isConnected ? (
+              <>
+                <Wifi className="w-4 h-4 text-emerald-400" />
+                <span className="text-zinc-400">
+                  Proxy <span className="text-emerald-400 font-bold">Connected</span>
+                </span>
+              </>
+            ) : (
+              <>
+                <WifiOff className="w-4 h-4 text-rose-500" />
+                <span className="text-rose-500">Disconnected</span>
+              </>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Health Factor Indicator */}
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-950 border border-zinc-850 text-xs font-bold">
+              <Shield className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+              <span className="text-zinc-400 uppercase text-[10px]">Health:</span>
+              <span className="text-emerald-400 font-mono">98.4%</span>
+            </div>
+
+            {/* Risk Control Selector */}
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-950 border border-zinc-850 text-xs font-bold">
+              <span className="text-zinc-500 uppercase text-[10px]">Risk Shield:</span>
+              <select
+                value={riskProfile}
+                onChange={(e) => setRiskProfile(e.target.value as any)}
+                className="bg-transparent text-emerald-400 focus:outline-none text-[10px] uppercase font-bold cursor-pointer pr-1"
+              >
+                <option value="low" className="bg-zinc-900 text-emerald-400">LOW (Safe)</option>
+                <option value="medium" className="bg-zinc-900 text-amber-400">MED (Auto Guard)</option>
+                <option value="high" className="bg-zinc-900 text-rose-400">HIGH (No Cap)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Right side: Session details or Action buttons */}
       {authorized && activeAccount ? (
@@ -127,9 +156,9 @@ export default function Navbar() {
           </div>
         </div>
       ) : (
-        <div className="flex items-center gap-2">
-          <div className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></div>
-          <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">UNAUTHORIZED</span>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-950 border border-zinc-800 text-xs font-bold text-zinc-400">
+          <Shield className="w-3.5 h-3.5 text-emerald-500" />
+          <span className="font-mono tracking-wide">SECURE BRIDGE</span>
         </div>
       )}
     </nav>

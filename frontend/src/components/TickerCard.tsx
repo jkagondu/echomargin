@@ -23,6 +23,8 @@ export default function TickerCard({ activeSymbol, onSymbolChange }: TickerCardP
   const [prevPrice, setPrevPrice] = useState<number | null>(null);
   const [priceHistory, setPriceHistory] = useState<number[]>([]);
   const [priceDirection, setPriceDirection] = useState<'up' | 'down' | 'flat'>('flat');
+  const [showSMA, setShowSMA] = useState(false);
+  const [showEMA, setShowEMA] = useState(false);
   
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -105,6 +107,42 @@ export default function TickerCard({ activeSymbol, onSymbolChange }: TickerCardP
       ctx.stroke();
     }
 
+    // Draw SMA if enabled
+    if (showSMA && priceHistory.length >= 14) {
+      ctx.beginPath();
+      priceHistory.forEach((price, index) => {
+        if (index < 13) return;
+        const sum = priceHistory.slice(index - 13, index + 1).reduce((a, b) => a + b, 0);
+        const smaValue = sum / 14;
+        const x = (width / (priceHistory.length - 1)) * index;
+        const y = height - 12 - ((smaValue - min) / range) * (height - 24);
+        if (index === 13) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.strokeStyle = '#f59e0b'; // amber-500
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+
+    // Draw EMA if enabled
+    if (showEMA && priceHistory.length >= 14) {
+      ctx.beginPath();
+      let prevEma = priceHistory[0];
+      const k = 2 / (14 + 1);
+      priceHistory.forEach((price, index) => {
+        const emaValue = price * k + prevEma * (1 - k);
+        prevEma = emaValue;
+        if (index < 13) return;
+        const x = (width / (priceHistory.length - 1)) * index;
+        const y = height - 12 - ((emaValue - min) / range) * (height - 24);
+        if (index === 13) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.strokeStyle = '#3b82f6'; // blue-500
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+
     // Prepare line path
     ctx.beginPath();
     priceHistory.forEach((price, index) => {
@@ -152,7 +190,7 @@ export default function TickerCard({ activeSymbol, onSymbolChange }: TickerCardP
     ctx.fillStyle = isUp ? 'rgba(16, 185, 129, 0.25)' : 'rgba(244, 63, 94, 0.25)';
     ctx.fill();
 
-  }, [priceHistory, priceDirection]);
+  }, [priceHistory, priceDirection, showSMA, showEMA]);
 
   // Calculate statistics
   const currentPrice = currentTick ? parseFloat(currentTick.quote) : null;
@@ -194,10 +232,10 @@ export default function TickerCard({ activeSymbol, onSymbolChange }: TickerCardP
       </div>
 
       {/* Real-time Streaming Value */}
-      <div className="flex items-baseline justify-between mb-3 relative z-10">
+      <div className="flex flex-col sm:flex-row sm:items-baseline justify-between mb-3 relative z-10 gap-2 sm:gap-0">
         <div className="flex flex-col">
           <span className="text-xs text-zinc-500 font-semibold uppercase">Live Quote</span>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className={`text-3xl font-extrabold font-mono tracking-tight transition-colors duration-300 ${
               priceDirection === 'up'
                 ? 'text-emerald-400'
@@ -248,7 +286,30 @@ export default function TickerCard({ activeSymbol, onSymbolChange }: TickerCardP
           <div className="absolute inset-0 flex items-center justify-center text-zinc-600 text-xs font-semibold">
             Accumulating tick data for chart...
           </div>
-        ) : null}
+        ) : (
+          <div className="absolute top-2 left-2 flex gap-2 z-20">
+            <button
+              onClick={() => setShowSMA(!showSMA)}
+              className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase transition-all cursor-pointer border ${
+                showSMA
+                  ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                  : 'bg-zinc-950/80 text-zinc-500 border-zinc-800 hover:border-zinc-700'
+              }`}
+            >
+              SMA (14)
+            </button>
+            <button
+              onClick={() => setShowEMA(!showEMA)}
+              className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase transition-all cursor-pointer border ${
+                showEMA
+                  ? 'bg-blue-500/10 text-blue-400 border-blue-500/30'
+                  : 'bg-zinc-950/80 text-zinc-500 border-zinc-800 hover:border-zinc-700'
+              }`}
+            >
+              EMA (14)
+            </button>
+          </div>
+        )}
         <canvas ref={canvasRef} className="w-full h-full" />
       </div>
     </div>

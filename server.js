@@ -13,7 +13,7 @@ const wss = new WebSocket.Server({ noServer: true });
 
 const PORT = process.env.PORT || 5000;
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
-const DERIV_APP_ID = process.env.DERIV_APP_ID || '1089';
+const DERIV_APP_ID = process.env.DERIV_APP_ID || '33nlevTU3BgvBLPY6vMVb';
 
 // Simple in-memory session store (SessionID -> SessionData)
 // In production, use Redis or a database session store

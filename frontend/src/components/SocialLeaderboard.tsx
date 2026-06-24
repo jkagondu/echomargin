@@ -31,8 +31,73 @@ export default function SocialLeaderboard() {
   const [copyRatio, setCopyRatio] = useState('1.0');
   const [maxAllocation, setMaxAllocation] = useState('200');
   const [sharingUrl, setSharingUrl] = useState<string | null>(null);
-  
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  
+  const [copiedLogs, setCopiedLogs] = useState<Array<{time: string, type: 'info' | 'success' | 'error', prefix: string, message: string}>>([]);
+
+  // Listen to live trade events for copy simulation
+  useEffect(() => {
+    if (!copyTradingActive) {
+      setCopiedLogs([]);
+      return;
+    }
+
+    const handleTradeEvent = (e: Event) => {
+      const trade = (e as CustomEvent).detail;
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const multiplier = parseFloat(copyRatio) || 1.0;
+      const copiedStake = (trade.stake * multiplier).toFixed(2);
+
+      if (trade.status === 'purchasing') {
+        setCopiedLogs(prev => [
+          {
+            time: timeStr,
+            type: 'info',
+            prefix: '[COPIER SIGNAL]',
+            message: `Detected Master order: ${trade.type} on ${trade.symbol.replace('R_', 'Volatility ')}. Scaling and routing order...`
+          },
+          ...prev
+        ]);
+      } else if (trade.status === 'open') {
+        setCopiedLogs(prev => [
+          {
+            time: timeStr,
+            type: 'info',
+            prefix: '[COPIER PLACED]',
+            message: `Successfully executed copy-trade on ${trade.symbol.replace('R_', 'Volatility ')} with stake $${copiedStake} USD. Entry Spot: ${trade.buyPrice || 'Calculating...'}`
+          },
+          ...prev
+        ]);
+      } else if (trade.status === 'won') {
+        const profit = (trade.profit || 0) * multiplier;
+        setCopiedLogs(prev => [
+          {
+            time: timeStr,
+            type: 'success',
+            prefix: '[COPIER SETTLED]',
+            message: `Master contract won! Copied payout settled. Net Profit: +$${profit.toFixed(2)} USD.`
+          },
+          ...prev
+        ]);
+      } else if (trade.status === 'lost') {
+        const loss = Math.abs((trade.profit || -trade.stake) * multiplier);
+        setCopiedLogs(prev => [
+          {
+            time: timeStr,
+            type: 'error',
+            prefix: '[COPIER SETTLED]',
+            message: `Master contract lost. Copied loss recorded. Net Loss: -$${loss.toFixed(2)} USD.`
+          },
+          ...prev
+        ]);
+      }
+    };
+
+    window.addEventListener('deriv-trade-event', handleTradeEvent);
+    return () => {
+      window.removeEventListener('deriv-trade-event', handleTradeEvent);
+    };
+  }, [copyTradingActive, copyRatio]);
 
   // Check URL query parameters for ?copyId= on mount
   useEffect(() => {
@@ -287,6 +352,40 @@ export default function SocialLeaderboard() {
           {copyTradingActive ? 'DEACTIVATE COPY-TRADE' : 'ACTIVATE COPY-TRADE'}
         </button>
       </div>
+
+      {copyTradingActive && (
+        <div className="lg:col-span-12 bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-2xl flex flex-col h-[180px] mt-2 animate-slideIn">
+          <div className="flex items-center gap-2 mb-3 border-b border-zinc-850 pb-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+            <span className="text-zinc-300 text-xs font-bold uppercase tracking-wider">Copier Execution Stream</span>
+          </div>
+          <div className="flex-1 overflow-y-auto font-mono text-[10px] space-y-1 bg-zinc-950 p-3 rounded-lg border border-zinc-850">
+            {copiedLogs.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-zinc-650 font-sans text-xs">
+                Waiting for master account trade signals... Place a manual trade to trigger copier replication.
+              </div>
+            ) : (
+              copiedLogs.map((log, idx) => (
+                <div key={idx} className="text-zinc-400">
+                  <span className="text-zinc-600">[{log.time}]</span>{' '}
+                  <span
+                    className={
+                      log.type === 'error'
+                        ? 'text-rose-400 font-bold'
+                        : log.type === 'success'
+                        ? 'text-emerald-400 font-bold'
+                        : 'text-blue-400 font-bold'
+                    }
+                  >
+                    {log.prefix}
+                  </span>{' '}
+                  {log.message}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
 
     </div>
   );

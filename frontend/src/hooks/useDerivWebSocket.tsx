@@ -19,6 +19,8 @@ interface DerivWebSocketContextType {
   switchAccount: (accountId: string) => Promise<void>;
   logout: () => Promise<void>;
   wsLogs: { id: string; type: 'send' | 'recv'; content: string; timestamp: number }[];
+  demoMode: boolean;
+  enableDemoMode: () => void;
 }
 
 const DerivWebSocketContext = createContext<DerivWebSocketContextType | null>(null);
@@ -33,6 +35,10 @@ export function DerivWebSocketProvider({ children }: { children: React.ReactNode
   const [accountsList, setAccountsList] = useState<{ accountId: string; currency: string }[]>([]);
   const [activeTick, setActiveTick] = useState<any>(null);
   const [wsLogs, setWsLogs] = useState<{ id: string; type: 'send' | 'recv'; content: string; timestamp: number }[]>([]);
+  
+  const [demoMode, setDemoMode] = useState(false);
+  const mockIntervals = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  const mockContractIntervals = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   const addLog = useCallback((type: 'send' | 'recv', content: string) => {
     setWsLogs(prev => {
@@ -50,20 +56,26 @@ export function DerivWebSocketProvider({ children }: { children: React.ReactNode
 
   const ws = useRef<WebSocket | null>(null);
   const reconnectTimeout = useRef<NodeJS.Timeout | null>(null);
-  const reconnectDelay = useRef<number>(1000); // Start with 1s reconnect delay
+  const reconnectDelay = useRef<number>(1000);
   const pingInterval = useRef<NodeJS.Timeout | null>(null);
   
-  // Track pending promises for req_id matching
   const reqIdCounter = useRef<number>(0);
   const pendingRequests = useRef<Map<number, { resolve: (val: any) => void; reject: (err: any) => void; timeout: NodeJS.Timeout }>>(new Map());
 
-  // Track active tick callbacks and sub IDs
   const tickCallbacks = useRef<Map<string, Set<(tick: any) => void>>>(new Map());
-  const symbolToSubId = useRef<Map<string, string>>(new Map()); // symbol -> subscription_id
-  // Track contract subscription callbacks
+  const symbolToSubId = useRef<Map<string, string>>(new Map());
   const contractCallbacks = useRef<Map<string, (contract: any) => void>>(new Map());
 
-  // 1. Fetch current session details from Express backend
+  const enableDemoMode = () => {
+    setDemoMode(true);
+    setIsConnected(true);
+    setAuthorized(true);
+    setBalance(10000.00);
+    setActiveAccount({ accountId: 'VRTC999999', currency: 'USD' });
+    setAccountsList([{ accountId: 'VRTC999999', currency: 'USD' }]);
+    setIsConnecting(false);
+  };
+
   const fetchSession = async () => {
     try {
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
@@ -83,9 +95,9 @@ export function DerivWebSocketProvider({ children }: { children: React.ReactNode
     }
   };
 
-  // 2. Connect to the Backend WebSocket Proxy
   const connect = useCallback(async () => {
-    // Clear existing intervals/timeouts
+    if (demoMode) return; // Skip connection if in demo mode
+    
     if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current);
     if (pingInterval.current) clearInterval(pingInterval.current);
     
@@ -100,7 +112,6 @@ export function DerivWebSocketProvider({ children }: { children: React.ReactNode
     setConnectionError(null);
 
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
-    // Replace http/https with ws/wss
     const wsUrl = backendUrl.replace(/^http/, 'ws') + '/ws';
     
     console.log(`[WS CONTEXT] Connecting to proxy at ${wsUrl}`);
@@ -113,9 +124,8 @@ export function DerivWebSocketProvider({ children }: { children: React.ReactNode
         console.log('[WS CONTEXT] WebSocket Connection established with proxy.');
         setIsConnected(true);
         setIsConnecting(false);
-        reconnectDelay.current = 1000; // Reset reconnect delay on success
+        reconnectDelay.current = 1000;
         
-        // Start ping/pong heartbeat every 30s
         pingInterval.current = setInterval(() => {
           if (socket.readyState === WebSocket.OPEN) {
             socket.send(JSON.stringify({ ping: 1 }));
@@ -129,12 +139,10 @@ export function DerivWebSocketProvider({ children }: { children: React.ReactNode
           addLog('recv', rawData);
           const response = JSON.parse(rawData);
 
-          // Handle heartbeat pings
           if (response.msg_type === 'ping') {
             return;
           }
 
-          // Handle authorization response
           if (response.msg_type === 'authorize') {
             if (response.error) {
               console.error('[WS CONTEXT] Authorization error:', response.error.message);
@@ -151,14 +159,12 @@ export function DerivWebSocketProvider({ children }: { children: React.ReactNode
             }
           }
 
-          // Handle balance update stream
           if (response.msg_type === 'balance') {
             if (!response.error && response.balance) {
               setBalance(parseFloat(response.balance.balance));
             }
           }
 
-          // Handle tick streams
           if (response.msg_type === 'tick') {
             const tick = response.tick;
             if (tick) {
@@ -171,7 +177,6 @@ export function DerivWebSocketProvider({ children }: { children: React.ReactNode
             }
           }
 
-          // Handle contract streams
           if (response.msg_type === 'proposal_open_contract') {
             const contract = response.proposal_open_contract;
             if (contract) {
@@ -181,7 +186,6 @@ export function DerivWebSocketProvider({ children }: { children: React.ReactNode
             }
           }
 
-          // Resolve pending request promises using req_id
           if (response.req_id) {
             const pending = pendingRequests.current.get(response.req_id);
             if (pending) {
@@ -207,7 +211,6 @@ export function DerivWebSocketProvider({ children }: { children: React.ReactNode
         setAuthorized(false);
         setIsConnecting(false);
 
-        // Don't auto-reconnect if it was normal closure or closed by logout
         if (event.code !== 1000 && event.code !== 1005) {
           triggerReconnect();
         }
@@ -224,9 +227,8 @@ export function DerivWebSocketProvider({ children }: { children: React.ReactNode
       setConnectionError(err.message || 'Setup error');
       triggerReconnect();
     }
-  }, []);
+  }, [demoMode]);
 
-  // Trigger reconnect with exponential backoff (capped at 30s)
   const triggerReconnect = () => {
     if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current);
     
@@ -237,8 +239,35 @@ export function DerivWebSocketProvider({ children }: { children: React.ReactNode
     }, reconnectDelay.current);
   };
 
-  // 3. Send arbitrary JSON request and wait for the response (matched by req_id)
   const sendRequest = (payload: any): Promise<any> => {
+    if (demoMode) {
+      return new Promise((resolve) => {
+        const req_id = payload.req_id || ++reqIdCounter.current;
+        setTimeout(() => {
+          if (payload.proposal) {
+            resolve({
+              req_id,
+              msg_type: 'proposal',
+              proposal: { id: 'mock-proposal-id-' + Math.random().toString(36).substring(2, 7) }
+            });
+          } else if (payload.buy) {
+            resolve({
+              req_id,
+              msg_type: 'buy',
+              buy: {
+                contract_id: 'mock-contract-id-' + Math.random().toString(36).substring(2, 9),
+                start_val: 100.25
+              }
+            });
+          } else if (payload.forget) {
+            resolve({ req_id, msg_type: 'forget' });
+          } else {
+            resolve({ req_id, msg_type: 'unknown' });
+          }
+        }, 300);
+      });
+    }
+
     return new Promise((resolve, reject) => {
       if (!ws.current || ws.current.readyState !== WebSocket.OPEN) {
         return reject(new Error('WebSocket connection is not open'));
@@ -251,7 +280,6 @@ export function DerivWebSocketProvider({ children }: { children: React.ReactNode
       const rawPayload = JSON.stringify(requestWithId);
       addLog('send', rawPayload);
 
-      // Set timeout for request (10 seconds)
       const timeout = setTimeout(() => {
         pendingRequests.current.delete(req_id);
         reject(new Error(`Request timeout for message type: ${payload.msg_type || 'unknown'}`));
@@ -262,9 +290,21 @@ export function DerivWebSocketProvider({ children }: { children: React.ReactNode
     });
   };
 
-  // 4. Subscribe to tick streams for a given symbol
   const subscribeTicks = async (symbol: string, callback: (tick: any) => void): Promise<string> => {
-    // Add callback to the symbol registry
+    if (demoMode) {
+      let price = 100.00;
+      const intervalId = setInterval(() => {
+        price += (Math.random() - 0.5) * 0.4;
+        callback({
+          symbol,
+          quote: price.toFixed(4),
+          epoch: Math.floor(Date.now() / 1000)
+        });
+      }, 1000);
+      mockIntervals.current.set(symbol, intervalId);
+      return 'mock-sub-id-' + symbol;
+    }
+
     let callbacks = tickCallbacks.current.get(symbol);
     if (!callbacks) {
       callbacks = new Set();
@@ -272,7 +312,6 @@ export function DerivWebSocketProvider({ children }: { children: React.ReactNode
     }
     callbacks.add(callback);
 
-    // If we already have a subscription for this symbol, return it
     if (symbolToSubId.current.has(symbol)) {
       return symbolToSubId.current.get(symbol)!;
     }
@@ -295,7 +334,6 @@ export function DerivWebSocketProvider({ children }: { children: React.ReactNode
       }
       throw new Error('Subscription ID not returned from Deriv');
     } catch (err) {
-      // Clean up local registry if API request failed
       callbacks.delete(callback);
       if (callbacks.size === 0) {
         tickCallbacks.current.delete(symbol);
@@ -304,8 +342,16 @@ export function DerivWebSocketProvider({ children }: { children: React.ReactNode
     }
   };
 
-  // 5. Unsubscribe from ticks for a given symbol
   const unsubscribeTicks = async (symbol: string) => {
+    if (demoMode) {
+      const interval = mockIntervals.current.get(symbol);
+      if (interval) {
+        clearInterval(interval);
+        mockIntervals.current.delete(symbol);
+      }
+      return;
+    }
+
     const subId = symbolToSubId.current.get(symbol);
     if (!subId) return;
 
@@ -327,14 +373,17 @@ export function DerivWebSocketProvider({ children }: { children: React.ReactNode
       }
     } catch (err) {
       console.error(`[WS CONTEXT] Failed to unsubscribe from ${symbol}:`, err);
-      // Even if API fails, clear locally to prevent leaks
       symbolToSubId.current.delete(symbol);
       tickCallbacks.current.delete(symbol);
     }
   };
 
-  // 6. Switch the active account
   const switchAccount = async (accountId: string) => {
+    if (demoMode) {
+      setActiveAccount({ accountId, currency: 'USD' });
+      return;
+    }
+
     try {
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
       const res = await fetch(`${backendUrl}/api/auth/select-account`, {
@@ -350,11 +399,9 @@ export function DerivWebSocketProvider({ children }: { children: React.ReactNode
       }
 
       console.log(`[WS CONTEXT] Account switched to ${accountId}. Reconnecting WS...`);
-      // Close current socket, which triggers reconnect using new active account tokens
       if (ws.current) {
         ws.current.close(1000, 'Switching account');
       }
-      // Instantly reconnect rather than waiting for auto-reconnect
       setTimeout(() => connect(), 200);
 
     } catch (err) {
@@ -363,15 +410,27 @@ export function DerivWebSocketProvider({ children }: { children: React.ReactNode
     }
   };
 
-  // 7. Log out and clear session
   const logout = async () => {
+    if (demoMode) {
+      setDemoMode(false);
+      setIsConnected(false);
+      setAuthorized(false);
+      setBalance(null);
+      setActiveAccount(null);
+      setAccountsList([]);
+      mockIntervals.current.forEach(clearInterval);
+      mockIntervals.current.clear();
+      mockContractIntervals.current.forEach(clearInterval);
+      mockContractIntervals.current.clear();
+      return;
+    }
+
     try {
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
       await fetch(`${backendUrl}/api/auth/logout`, { method: 'POST', credentials: 'include' });
     } catch (err) {
       console.error('[WS CONTEXT] Error calling logout endpoint:', err);
     } finally {
-      // Clear local states
       setIsConnected(false);
       setAuthorized(false);
       setBalance(null);
@@ -379,7 +438,6 @@ export function DerivWebSocketProvider({ children }: { children: React.ReactNode
       setAccountsList([]);
       setActiveTick(null);
       
-      // Close WebSocket explicitly
       if (ws.current) {
         ws.current.close(1000, 'User logout');
       }
@@ -387,14 +445,55 @@ export function DerivWebSocketProvider({ children }: { children: React.ReactNode
   };
 
   const subscribeContract = (contractId: string, callback: (contract: any) => void) => {
+    if (demoMode) {
+      let ticks = 0;
+      const duration = 5;
+      const profit = Math.random() > 0.45 ? 9.50 : -10.00;
+      
+      const intervalId = setInterval(() => {
+        ticks++;
+        const contractUpdate = {
+          contract_id: contractId,
+          underlying: 'R_100',
+          contract_type: 'CALL',
+          buy_price: '10.00',
+          payout: profit >= 0 ? '19.50' : '0.00',
+          profit,
+          barrier: 100.25,
+          current_spot: 100.25 + (Math.random() - 0.5) * 0.4,
+          tick_count: ticks,
+          is_sold: ticks >= duration ? 1 : 0,
+          status: ticks >= duration ? (profit >= 0 ? 'won' : 'lost') : 'open'
+        };
+        
+        callback(contractUpdate);
+        
+        if (ticks >= duration) {
+          clearInterval(intervalId);
+          mockContractIntervals.current.delete(contractId);
+        }
+      }, 1000);
+      
+      mockContractIntervals.current.set(contractId, intervalId);
+      return;
+    }
+
     contractCallbacks.current.set(contractId, callback);
   };
 
   const unsubscribeContract = (contractId: string) => {
+    if (demoMode) {
+      const interval = mockContractIntervals.current.get(contractId);
+      if (interval) {
+        clearInterval(interval);
+        mockContractIntervals.current.delete(contractId);
+      }
+      return;
+    }
+
     contractCallbacks.current.delete(contractId);
   };
 
-  // Connect on mount
   useEffect(() => {
     connect();
 
@@ -404,6 +503,9 @@ export function DerivWebSocketProvider({ children }: { children: React.ReactNode
       }
       if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current);
       if (pingInterval.current) clearInterval(pingInterval.current);
+      
+      mockIntervals.current.forEach(clearInterval);
+      mockContractIntervals.current.forEach(clearInterval);
     };
   }, [connect]);
 
@@ -426,6 +528,8 @@ export function DerivWebSocketProvider({ children }: { children: React.ReactNode
         switchAccount,
         logout,
         wsLogs,
+        demoMode,
+        enableDemoMode
       }}
     >
       {children}

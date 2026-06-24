@@ -3,12 +3,17 @@
 import React from 'react';
 
 export default function LoginButton() {
-  const appId = process.env.NEXT_PUBLIC_DERIV_APP_ID || '1089';
+  const appId = process.env.NEXT_PUBLIC_DERIV_APP_ID || '33nlevTU3BgvBLPY6vMVb';
   const oauthUrlBase = process.env.NEXT_PUBLIC_DERIV_OAUTH_URL || 'https://oauth.deriv.com/oauth2/authorize';
 
   const handleLogin = () => {
-    // Redirect the user to Deriv's OAuth portal
-    const oauthUrl = `${oauthUrlBase}?app_id=${appId}&l=en&brand=deriv`;
+    // Determine redirect URI dynamically for localhost, but default to production URL
+    const redirectUri = typeof window !== 'undefined' && (window.location.host.includes('localhost') || window.location.host.includes('127.0.0.1'))
+      ? `${window.location.origin}/callback`
+      : 'https://echomargin.com/callback';
+
+    // Redirect the user to Deriv's OAuth portal with redirect_uri
+    const oauthUrl = `${oauthUrlBase}?app_id=${appId}&l=en&brand=deriv&redirect_uri=${encodeURIComponent(redirectUri)}`;
     window.location.href = oauthUrl;
   };
 

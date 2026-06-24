@@ -13,6 +13,7 @@ interface AssetScan {
   rsi: number | null;
   status: 'Normal' | 'Overbought' | 'Oversold' | 'Spike';
   changePct: number;
+  signal: 'STRONG BUY' | 'BUY' | 'STRONG SELL' | 'SELL' | 'HOLD';
 }
 
 const MONITORED_ASSETS = [
@@ -36,7 +37,8 @@ export default function MarketScanner() {
       priceHistory: [],
       rsi: null,
       status: 'Normal',
-      changePct: 0
+      changePct: 0,
+      signal: 'HOLD'
     }))
   );
   
@@ -119,6 +121,22 @@ export default function MarketScanner() {
               else if (rsi <= 30) status = 'Oversold';
             }
 
+            // Calculate actionable signal based on technical levels
+            let signal: 'STRONG BUY' | 'BUY' | 'STRONG SELL' | 'SELL' | 'HOLD' = 'HOLD';
+            if (status === 'Oversold') {
+              signal = 'STRONG BUY';
+            } else if (status === 'Overbought') {
+              signal = 'STRONG SELL';
+            } else if (rsi !== null) {
+              const sum = updatedHistory.slice(-14).reduce((a, b) => a + b, 0);
+              const sma = sum / Math.min(14, updatedHistory.length);
+              if (price > sma + (price * 0.0001)) {
+                signal = 'BUY';
+              } else if (price < sma - (price * 0.0001)) {
+                signal = 'SELL';
+              }
+            }
+
             // Spike detection for Crash / Boom
             // Crash Index: sudden downward spike
             if (asset.symbol === 'CRASH500' && prev !== null) {
@@ -156,7 +174,8 @@ export default function MarketScanner() {
               priceHistory: updatedHistory,
               rsi,
               status,
-              changePct
+              changePct,
+              signal
             };
           });
         });
@@ -205,7 +224,8 @@ export default function MarketScanner() {
                 <th className="py-2 text-right">Price</th>
                 <th className="py-2 text-right">Trend (1hr)</th>
                 <th className="py-2 text-center">RSI (14)</th>
-                <th className="py-2 pr-2 text-center">Scanner Status</th>
+                <th className="py-2 text-center">Scanner Status</th>
+                <th className="py-2 pr-2 text-center">Action Signal</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-900">
@@ -252,7 +272,7 @@ export default function MarketScanner() {
                       )}
                     </td>
 
-                    <td className="py-3.5 pr-2 text-center">
+                    <td className="py-3.5 text-center">
                       {item.status === 'Normal' && (
                         <span className="px-2 py-0.5 rounded text-[10px] bg-zinc-950 text-zinc-500 font-bold uppercase border border-zinc-900">
                           Normal
@@ -271,6 +291,34 @@ export default function MarketScanner() {
                       {item.status === 'Spike' && (
                         <span className="px-2 py-0.5 rounded text-[10px] bg-amber-500 text-zinc-950 font-black uppercase border border-amber-400 animate-bounce">
                           Spike!
+                        </span>
+                      )}
+                    </td>
+
+                    <td className="py-3.5 pr-2 text-center">
+                      {item.signal === 'STRONG BUY' && (
+                        <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500 text-zinc-950 font-black uppercase border border-emerald-400 animate-pulse">
+                          Strong Buy
+                        </span>
+                      )}
+                      {item.signal === 'BUY' && (
+                        <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-400 font-bold uppercase border border-emerald-500/20">
+                          Buy
+                        </span>
+                      )}
+                      {item.signal === 'STRONG SELL' && (
+                        <span className="px-2 py-0.5 rounded text-[10px] bg-rose-500 text-zinc-950 font-black uppercase border border-rose-400 animate-pulse">
+                          Strong Sell
+                        </span>
+                      )}
+                      {item.signal === 'SELL' && (
+                        <span className="px-2 py-0.5 rounded text-[10px] bg-rose-500/10 text-rose-400 font-bold uppercase border border-rose-500/20">
+                          Sell
+                        </span>
+                      )}
+                      {item.signal === 'HOLD' && (
+                        <span className="px-2 py-0.5 rounded text-[10px] bg-zinc-950 text-zinc-600 font-bold uppercase border border-zinc-900">
+                          Hold
                         </span>
                       )}
                     </td>
