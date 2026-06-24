@@ -10,8 +10,8 @@ export default function LoginButton() {
     // Strictly hardcode the production callback URL to prevent www/non-www mismatch rejections by Deriv
     const redirectUri = 'https://echomargin.com/callback';
 
-    // Redirect the user to Deriv's OAuth portal with redirect_uri and affiliate tracking token
-    const oauthUrl = `${oauthUrlBase}?app_id=${appId}&l=en&brand=deriv&affiliate_token=UK8NZP3WV68X&redirect_uri=${encodeURIComponent(redirectUri)}`;
+    // Redirect the user to Deriv's OAuth portal with redirect_uri
+    const oauthUrl = `${oauthUrlBase}?app_id=${appId}&l=en&brand=deriv&redirect_uri=${encodeURIComponent(redirectUri)}`;
     window.location.href = oauthUrl;
   };
 
