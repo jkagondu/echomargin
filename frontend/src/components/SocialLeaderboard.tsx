@@ -22,7 +22,12 @@ const LEADERBOARD_DATA: LeaderboardEntry[] = [
   { rank: 5, traderName: 'Echo_Copy_1', strategy: 'Custom Tick-Trend', winRate: 66.2, p_l: 890.40, followers: 42, accountId: 'CR857201' },
 ];
 
-export default function SocialLeaderboard() {
+interface SocialLeaderboardProps {
+  onTradeStarted?: (trade: any) => void;
+  onTradeUpdated?: (trade: any) => void;
+}
+
+export default function SocialLeaderboard({ onTradeStarted, onTradeUpdated }: SocialLeaderboardProps = {}) {
   
   // Copy trading settings
   const [copyTradingActive, setCopyTradingActive] = useState(false);
@@ -77,6 +82,16 @@ export default function SocialLeaderboard() {
 
       const contractId = String(purchase.buy.contract_id);
       
+      const initialTrade = {
+        id: contractId,
+        symbol: signalTrade.symbol,
+        type: signalTrade.type,
+        stake: copiedStake,
+        status: 'open',
+        timestamp: Date.now()
+      };
+      if (onTradeStarted) onTradeStarted(initialTrade);
+
       setCopiedLogs(prev => [
         { time: new Date().toLocaleTimeString(), type: 'info', prefix: '[COPIER PLACED]', message: `Successfully executed copy-trade on ${signalTrade.symbol} with stake $${copiedStake}.` },
         ...prev
@@ -96,6 +111,17 @@ export default function SocialLeaderboard() {
            } else {
               setCopiedLogs(p => [{ time: new Date().toLocaleTimeString(), type: 'error', prefix: '[COPIER SETTLED]', message: `Master contract lost. Net Loss: -$${Math.abs(profit).toFixed(2)} USD.` }, ...p]);
            }
+
+           const finalTrade = {
+             id: contractId,
+             symbol: contract.underlying,
+             type: contract.contract_type,
+             stake: copiedStake,
+             status: contract.status,
+             profit,
+             timestamp: contract.date_start * 1000
+           };
+           if (onTradeUpdated) onTradeUpdated(finalTrade);
         }
       });
     } catch (e: any) {

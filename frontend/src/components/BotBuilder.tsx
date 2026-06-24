@@ -11,8 +11,14 @@ interface BotLog {
   type: 'info' | 'success' | 'warn' | 'error';
 }
 
-export default function BotBuilder({ symbol }: { symbol: string }) {
-  const { sendRequest, subscribeTicks, unsubscribeTicks, subscribeContract, unsubscribeContract, activeAccount, authorized, isConnected } = useDerivWebSocket();
+interface BotBuilderProps {
+  symbol: string;
+  onTradeStarted?: (trade: any) => void;
+  onTradeUpdated?: (trade: any) => void;
+}
+
+export default function BotBuilder({ symbol, onTradeStarted, onTradeUpdated }: BotBuilderProps) {
+  const { sendRequest, subscribeTicks, unsubscribeTicks, subscribeContract, unsubscribeContract, activeAccount, authorized, isConnected, broadcastTradeSignal } = useDerivWebSocket();
 
   // Bot Configuration State
   const [strategy, setStrategy] = useState<'custom' | 'martingale' | 'dalembert' | 'scanner_sync'>('martingale');
@@ -267,6 +273,22 @@ export default function BotBuilder({ symbol }: { symbol: string }) {
       const contractId = String(purchase.buy.contract_id);
       currentContractId.current = contractId;
 
+      const initialTrade = {
+        id: contractId,
+        symbol,
+        type,
+        stake: currentStakeVal,
+        status: 'open',
+        buyPrice: purchase.buy.start_val,
+        timestamp: Date.now()
+      };
+      
+      if (onTradeStarted) onTradeStarted(initialTrade);
+      window.dispatchEvent(new CustomEvent('deriv-trade-event', { detail: initialTrade }));
+      if (activeAccount?.accountId) {
+        broadcastTradeSignal(activeAccount.accountId, initialTrade);
+      }
+
       // 3. Subscribe to outcome
       const openContract = await sendRequest({
         proposal_open_contract: 1,
@@ -293,6 +315,21 @@ export default function BotBuilder({ symbol }: { symbol: string }) {
     const isWin = contract.status === 'won';
     const profit = parseFloat(contract.profit);
     const stake = parseFloat(contract.buy_price);
+
+    const finalTrade = {
+      id: String(contract.contract_id),
+      symbol: contract.underlying,
+      type: contract.contract_type,
+      stake,
+      status: contract.status,
+      buyPrice: contract.barrier ? parseFloat(contract.barrier) : undefined,
+      exitPrice: contract.exit_tick ? parseFloat(contract.exit_tick) : undefined,
+      payout: contract.payout ? parseFloat(contract.payout) : undefined,
+      profit,
+      timestamp: contract.date_start * 1000
+    };
+    if (onTradeUpdated) onTradeUpdated(finalTrade);
+    window.dispatchEvent(new CustomEvent('deriv-trade-event', { detail: finalTrade }));
 
     // Unsubscribe from closed contract
     if (currentContractId.current) unsubscribeContract(currentContractId.current);

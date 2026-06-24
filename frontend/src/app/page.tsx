@@ -352,7 +352,11 @@ export default function Home() {
             )}
 
             {activeTab === 'bot' && (
-              <BotBuilder symbol={activeSymbol} />
+              <BotBuilder 
+                symbol={activeSymbol} 
+                onTradeStarted={handleTradeStarted} 
+                onTradeUpdated={handleTradeUpdated} 
+              />
             )}
 
             {activeTab === 'scanner' && (
@@ -360,7 +364,10 @@ export default function Home() {
             )}
 
             {activeTab === 'social' && (
-              <SocialLeaderboard />
+              <SocialLeaderboard 
+                onTradeStarted={handleTradeStarted} 
+                onTradeUpdated={handleTradeUpdated} 
+              />
             )}
           </main>
         </div>
