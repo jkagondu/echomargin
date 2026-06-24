@@ -7,10 +7,8 @@ export default function LoginButton() {
   const oauthUrlBase = process.env.NEXT_PUBLIC_DERIV_OAUTH_URL || 'https://oauth.deriv.com/oauth2/authorize';
 
   const handleLogin = () => {
-    // Dynamically use the current secure origin
-    const redirectUri = typeof window !== 'undefined' 
-      ? `${window.location.origin}/callback`
-      : 'https://echomargin.com/callback';
+    // Strictly hardcode the production callback URL to prevent www/non-www mismatch rejections by Deriv
+    const redirectUri = 'https://echomargin.com/callback';
 
     // Redirect the user to Deriv's OAuth portal with redirect_uri
     const oauthUrl = `${oauthUrlBase}?app_id=${appId}&l=en&brand=deriv&redirect_uri=${encodeURIComponent(redirectUri)}`;
