@@ -14,6 +14,7 @@ import Logo from '@/components/Logo';
 import LiquidityTicker from '@/components/LiquidityTicker';
 import BentoHealth from '@/components/BentoHealth';
 import { Shield, Zap, LineChart, Cpu, Lock, Bot, Activity, Users, LayoutDashboard, ArrowRight, Server, RefreshCw } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface LoggedTrade {
   id: string;
@@ -319,56 +320,89 @@ export default function Home() {
           </div>
 
           {/* Main Content Area */}
-          <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 relative z-10">
-            {activeTab === 'trade' && (
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                {/* Left Column: Asset Chart & Bento Health Matrix (Span 8) */}
-                <div className="lg:col-span-8 flex flex-col gap-6">
-                  <TickerCard
-                    activeSymbol={activeSymbol}
-                    onSymbolChange={setActiveSymbol}
+          <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 relative z-10 overflow-hidden">
+            <AnimatePresence mode="wait">
+              {activeTab === 'trade' && (
+                <motion.div
+                  key="trade"
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -15 }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
+                  className="grid grid-cols-1 lg:grid-cols-12 gap-6"
+                >
+                  {/* Left Column: Asset Chart & Bento Health Matrix (Span 8) */}
+                  <div className="lg:col-span-8 flex flex-col gap-6">
+                    <TickerCard
+                      activeSymbol={activeSymbol}
+                      onSymbolChange={setActiveSymbol}
+                    />
+                    
+                    <BentoHealth />
+                  </div>
+
+                  {/* Right Column: Action panel with Leverage Slider (Span 4) */}
+                  <div className="lg:col-span-4">
+                    <TradeController
+                      symbol={activeSymbol}
+                      onTradeStarted={handleTradeStarted}
+                      onTradeUpdated={handleTradeUpdated}
+                    />
+                  </div>
+
+                  {/* Bottom Row: Tabbed Workspace Grid (Span 12) */}
+                  <div className="lg:col-span-12">
+                    <ActivityLog
+                      trades={trades}
+                      onClearTrades={handleClearTrades}
+                    />
+                  </div>
+                </motion.div>
+              )}
+
+              {activeTab === 'bot' && (
+                <motion.div
+                  key="bot"
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -15 }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
+                >
+                  <BotBuilder 
+                    symbol={activeSymbol} 
+                    onTradeStarted={handleTradeStarted} 
+                    onTradeUpdated={handleTradeUpdated} 
                   />
-                  
-                  <BentoHealth />
-                </div>
+                </motion.div>
+              )}
 
-                {/* Right Column: Action panel with Leverage Slider (Span 4) */}
-                <div className="lg:col-span-4">
-                  <TradeController
-                    symbol={activeSymbol}
-                    onTradeStarted={handleTradeStarted}
-                    onTradeUpdated={handleTradeUpdated}
+              {activeTab === 'scanner' && (
+                <motion.div
+                  key="scanner"
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -15 }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
+                >
+                  <MarketScanner />
+                </motion.div>
+              )}
+
+              {activeTab === 'social' && (
+                <motion.div
+                  key="social"
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -15 }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
+                >
+                  <SocialLeaderboard 
+                    onTradeStarted={handleTradeStarted} 
+                    onTradeUpdated={handleTradeUpdated} 
                   />
-                </div>
-
-                {/* Bottom Row: Tabbed Workspace Grid (Span 12) */}
-                <div className="lg:col-span-12">
-                  <ActivityLog
-                    trades={trades}
-                    onClearTrades={handleClearTrades}
-                  />
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'bot' && (
-              <BotBuilder 
-                symbol={activeSymbol} 
-                onTradeStarted={handleTradeStarted} 
-                onTradeUpdated={handleTradeUpdated} 
-              />
-            )}
-
-            {activeTab === 'scanner' && (
-              <MarketScanner />
-            )}
-
-            {activeTab === 'social' && (
-              <SocialLeaderboard 
-                onTradeStarted={handleTradeStarted} 
-                onTradeUpdated={handleTradeUpdated} 
-              />
-            )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </main>
         </div>
       ) : (
