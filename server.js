@@ -215,6 +215,58 @@ app.get('/api/copy-links', async (req, res) => {
   return res.json({ success: true, links });
 });
 
+// 8. POST /api/trades
+// Save a completed trade
+app.post('/api/trades', async (req, res) => {
+  const cookies = parseCookies(req.headers.cookie);
+  const sessionId = cookies['session_id'];
+
+  if (!sessionId || !sessions.has(sessionId)) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const session = sessions.get(sessionId);
+  const { id, symbol, type, stake, profit, status, timestamp } = req.body;
+
+  if (!id || !symbol || !type || stake === undefined || !status || !timestamp) {
+    return res.status(400).json({ error: 'Missing required trade fields' });
+  }
+
+  const trade = {
+    id,
+    accountId: session.activeAccountId,
+    symbol,
+    type,
+    stake: parseFloat(stake),
+    profit: profit !== undefined && profit !== null ? parseFloat(profit) : null,
+    status,
+    timestamp: parseInt(timestamp)
+  };
+
+  const success = await db.writeTrade(trade);
+  if (!success) {
+    return res.status(500).json({ error: 'Failed to save trade' });
+  }
+
+  return res.json({ success: true, trade });
+});
+
+// 9. GET /api/trades
+// Fetch recent trades for the active account
+app.get('/api/trades', async (req, res) => {
+  const cookies = parseCookies(req.headers.cookie);
+  const sessionId = cookies['session_id'];
+
+  if (!sessionId || !sessions.has(sessionId)) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const session = sessions.get(sessionId);
+  const trades = await db.readTrades(session.activeAccountId);
+  
+  return res.json({ success: true, trades });
+});
+
 // Integrate WebSocket Server
 server.on('upgrade', (request, socket, head) => {
   const pathname = new URL(request.url, `http://${request.headers.host}`).pathname;

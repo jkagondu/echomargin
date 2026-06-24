@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const DB_FILE = path.join(__dirname, 'copy_links.json');
+const TRADES_DB_FILE = path.join(__dirname, 'trades.json');
 
 // Check if we have PostgreSQL config
 const isPostgres = !!process.env.DATABASE_URL;
@@ -24,6 +25,9 @@ if (isPostgres) {
 if (!fs.existsSync(DB_FILE)) {
   fs.writeFileSync(DB_FILE, JSON.stringify([], null, 2));
 }
+if (!fs.existsSync(TRADES_DB_FILE)) {
+  fs.writeFileSync(TRADES_DB_FILE, JSON.stringify([], null, 2));
+}
 
 async function initDatabase() {
   if (pgPool) {
@@ -39,7 +43,20 @@ async function initDatabase() {
           created_at BIGINT NOT NULL
         )
       `);
-      console.log('[DB] PostgreSQL copy_links table verified.');
+      
+      await pgPool.query(`
+        CREATE TABLE IF NOT EXISTS trades (
+          id VARCHAR(50) PRIMARY KEY,
+          account_id VARCHAR(50) NOT NULL,
+          symbol VARCHAR(50) NOT NULL,
+          type VARCHAR(50) NOT NULL,
+          stake NUMERIC NOT NULL,
+          profit NUMERIC,
+          status VARCHAR(20) NOT NULL,
+          timestamp BIGINT NOT NULL
+        )
+      `);
+      console.log('[DB] PostgreSQL copy_links and trades tables verified.');
     } catch (err) {
       console.error('[DB] Failed to initialize PostgreSQL table:', err.message);
       pgPool = null; // fallback
@@ -129,8 +146,79 @@ async function findCopyLink(id) {
   return links.find(l => l.id === id) || null;
 }
 
+// ============================================
+// TRADE HISTORY METHODS
+// ============================================
+
+async function readTrades(accountId) {
+  if (pgPool) {
+    try {
+      const res = await pgPool.query('SELECT * FROM trades WHERE account_id = $1 ORDER BY timestamp DESC LIMIT 100', [accountId]);
+      return res.rows.map(r => ({
+        id: r.id,
+        accountId: r.account_id,
+        symbol: r.symbol,
+        type: r.type,
+        stake: parseFloat(r.stake),
+        profit: r.profit !== null ? parseFloat(r.profit) : null,
+        status: r.status,
+        timestamp: parseInt(r.timestamp)
+      }));
+    } catch (err) {
+      console.error('[DB] PostgreSQL readTrades failed:', err.message);
+    }
+  }
+  
+  // Fallback
+  try {
+    const raw = fs.readFileSync(TRADES_DB_FILE, 'utf8');
+    let allTrades = JSON.parse(raw);
+    return allTrades.filter(t => t.accountId === accountId).sort((a, b) => b.timestamp - a.timestamp).slice(0, 100);
+  } catch (err) {
+    console.error('[DB] File database readTrades failed:', err);
+    return [];
+  }
+}
+
+async function writeTrade(trade) {
+  if (pgPool) {
+    try {
+      await pgPool.query(
+        `INSERT INTO trades (id, account_id, symbol, type, stake, profit, status, timestamp)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         ON CONFLICT (id) DO UPDATE SET profit = $6, status = $7`,
+        [trade.id, trade.accountId, trade.symbol, trade.type, trade.stake, trade.profit, trade.status, trade.timestamp]
+      );
+      return true;
+    } catch (err) {
+      console.error('[DB] PostgreSQL writeTrade failed:', err.message);
+    }
+  }
+
+  // Fallback
+  try {
+    const raw = fs.readFileSync(TRADES_DB_FILE, 'utf8');
+    let allTrades = JSON.parse(raw);
+    
+    const existingIndex = allTrades.findIndex(t => t.id === trade.id);
+    if (existingIndex >= 0) {
+      allTrades[existingIndex] = trade;
+    } else {
+      allTrades.push(trade);
+    }
+    
+    fs.writeFileSync(TRADES_DB_FILE, JSON.stringify(allTrades, null, 2), 'utf8');
+    return true;
+  } catch (err) {
+    console.error('[DB] File database writeTrade failed:', err);
+    return false;
+  }
+}
+
 module.exports = {
   readCopyLinks,
   writeCopyLink,
-  findCopyLink
+  findCopyLink,
+  readTrades,
+  writeTrade
 };

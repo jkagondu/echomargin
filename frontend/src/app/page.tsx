@@ -170,6 +170,26 @@ export default function Home() {
   const [trades, setTrades] = useState<LoggedTrade[]>([]);
   const [activeTab, setActiveTab] = useState<'trade' | 'bot' | 'scanner' | 'social'>('trade');
 
+  // Fetch initial trade history
+  useEffect(() => {
+    if (authorized) {
+      const fetchHistory = async () => {
+        try {
+          const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || '';
+          const res = await fetch(`${baseUrl}/api/trades`, { credentials: 'include' });
+          const data = await res.json();
+          if (data.success && data.trades) {
+            // Merge database trades into state
+            setTrades(data.trades);
+          }
+        } catch (e) {
+          console.error("Failed to load trade history", e);
+        }
+      };
+      fetchHistory();
+    }
+  }, [authorized]);
+
   const handleTradeStarted = (newTrade: LoggedTrade) => {
     setTrades((prev) => [newTrade, ...prev]);
   };
@@ -188,6 +208,17 @@ export default function Home() {
         return [updatedTrade, ...prev];
       }
     });
+
+    // Save trade to backend if it just closed
+    if (updatedTrade.status === 'won' || updatedTrade.status === 'lost') {
+      const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || '';
+      fetch(`${baseUrl}/api/trades`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(updatedTrade)
+      }).catch(console.error);
+    }
   };
 
   const handleClearTrades = () => {
