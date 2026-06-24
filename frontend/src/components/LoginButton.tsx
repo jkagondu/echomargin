@@ -7,8 +7,8 @@ export default function LoginButton() {
   const oauthUrlBase = process.env.NEXT_PUBLIC_DERIV_OAUTH_URL || 'https://oauth.deriv.com/oauth2/authorize';
 
   const handleLogin = () => {
-    // Determine redirect URI dynamically for localhost, but default to production URL
-    const redirectUri = typeof window !== 'undefined' && (window.location.host.includes('localhost') || window.location.host.includes('127.0.0.1'))
+    // Dynamically use the current secure origin
+    const redirectUri = typeof window !== 'undefined' 
       ? `${window.location.origin}/callback`
       : 'https://echomargin.com/callback';
 
