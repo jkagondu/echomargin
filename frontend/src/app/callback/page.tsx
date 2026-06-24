@@ -126,7 +126,7 @@ function CallbackHandler() {
                 </button>
                 <button
                   onClick={() => {
-                    const appId = process.env.NEXT_PUBLIC_DERIV_APP_ID || '33DYobo60p3hLWAOB3Sm5';
+                    const appId = process.env.NEXT_PUBLIC_DERIV_APP_ID || '33DYobo80p3hLWA0B3Sm5';
                     const oauthUrlBase = process.env.NEXT_PUBLIC_DERIV_OAUTH_URL || 'https://oauth.deriv.com/oauth2/authorize';
                     const redirectUri = 'https://echomargin.com/callback';
                     window.location.href = `${oauthUrlBase}?app_id=${appId}&l=en&brand=deriv&affiliate_token=UK8NZP3WV68X&redirect_uri=${encodeURIComponent(redirectUri)}`;
