@@ -407,100 +407,148 @@ export default function Home() {
         </div>
       ) : (
         // Landing Page / Login Flow
-        <main className="flex-1 py-12 md:py-20 px-4 sm:px-6 lg:px-8 relative overflow-hidden max-w-7xl mx-auto w-full">
-          {/* Aesthetic background mesh & glow points */}
-          <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-emerald-500/5 rounded-full blur-3xl -z-10 animate-pulse"></div>
-          <div className="absolute bottom-1/4 right-1/4 w-[600px] h-[600px] bg-teal-500/5 rounded-full blur-3xl -z-10 animate-pulse" style={{ animationDelay: '2s' }}></div>
-
-          {/* Premium Hero Section - Two Column Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center mb-24">
+        <main className="flex-1 relative overflow-hidden min-h-screen flex flex-col">
+          {/* Animated Background Mesh & Grid */}
+          <div className="absolute inset-0 z-0">
+            {/* Cyber Grid */}
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,#18181b_1px,transparent_1px),linear-gradient(to_bottom,#18181b_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-40"></div>
             
-            {/* Left Column: Headline and Trust Signals */}
-            <div className="lg:col-span-7 text-left flex flex-col items-start">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-bold uppercase tracking-wider mb-6 border border-emerald-500/20">
-                <Shield className="w-3.5 h-3.5" />
-                Delegated Secure Authentication
-              </div>
+            {/* Glowing Ambient Orbs */}
+            <motion.div 
+              animate={{ x: [-20, 20, -20], y: [-20, 20, -20] }} 
+              transition={{ repeat: Infinity, duration: 8, ease: "linear" }}
+              className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-emerald-500/10 rounded-full blur-[100px] mix-blend-screen"
+            />
+            <motion.div 
+              animate={{ x: [20, -20, 20], y: [20, -20, 20] }} 
+              transition={{ repeat: Infinity, duration: 10, ease: "linear" }}
+              className="absolute bottom-1/4 right-1/4 w-[600px] h-[600px] bg-teal-500/10 rounded-full blur-[100px] mix-blend-screen"
+            />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-emerald-900/10 rounded-full blur-[120px] mix-blend-screen"></div>
+          </div>
+
+          <div className="relative z-10 flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-12 md:py-20 flex flex-col justify-center">
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center">
               
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-none mb-6 text-white">
-                Secure Deriv Proxy Trading,{' '}
-                <span className="bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-300 bg-clip-text text-transparent">
-                  Redefined.
-                </span>
-              </h1>
-              
-              <p className="text-zinc-400 text-sm sm:text-base md:text-lg leading-relaxed mb-8 max-w-2xl">
-                EchoMargin bridges the official Deriv API via a secure, enterprise-grade backend proxy. 
-                Keep your private keys out of unsafe browser variables, stream real-time ticks with zero delay, and trade securely.
-              </p>
-
-              {/* Bulleted trust factors */}
-              <div className="space-y-3.5 text-zinc-300 text-xs sm:text-sm font-medium w-full">
-                <div className="flex items-center gap-3">
-                  <div className="w-5 h-5 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-                    <span className="text-emerald-400 font-bold text-xs">✓</span>
-                  </div>
-                  <span><strong className="text-white">Zero Token Leakage:</strong> Credentials stored strictly in HttpOnly server sessions.</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-5 h-5 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-                    <span className="text-emerald-400 font-bold text-xs">✓</span>
-                  </div>
-                  <span><strong className="text-white">Low-Latency WebSockets:</strong> Native proxying for real-time tick streaming.</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-5 h-5 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-                    <span className="text-emerald-400 font-bold text-xs">✓</span>
-                  </div>
-                  <span><strong className="text-white">Complete Automation:</strong> Martingale, D'Alembert & Custom indicator bots.</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-5 h-5 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-                    <span className="text-emerald-400 font-bold text-xs">✓</span>
-                  </div>
-                  <span><strong className="text-white">Social Leaderboard:</strong> Instantly share and copy trades with secure URLs.</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Right Column: Connection / Login Portal Card */}
-            <div className="lg:col-span-5 flex justify-center w-full">
-              <div className="bg-gradient-to-b from-zinc-900/60 to-zinc-950/80 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-8 w-full shadow-2xl relative group max-w-md">
+              {/* Left Column: Creative Pitch */}
+              <motion.div 
+                initial={{ opacity: 0, x: -30 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6, ease: "easeOut" }}
+                className="flex flex-col items-start"
+              >
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2, duration: 0.5 }}
+                  className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-zinc-900/80 backdrop-blur-md border border-emerald-500/30 text-emerald-400 text-xs font-bold uppercase tracking-widest mb-8 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
+                >
+                  <Shield className="w-4 h-4" />
+                  Enterprise-Grade WebSocket Proxy
+                </motion.div>
                 
-                {/* Glowing status indicator */}
-                <div className="absolute top-4 right-4 flex items-center gap-1.5 px-2 py-0.5 rounded bg-zinc-900 border border-zinc-850 text-[9px] font-bold text-emerald-400 uppercase tracking-widest">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-                  Active
-                </div>
-
-                <div className="pt-4 mb-6 text-center">
-                  <div className="mx-auto w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center border border-zinc-850 shadow-xl group-hover:scale-105 transition-transform duration-300 mb-4">
-                    <Lock className="w-5 h-5 text-zinc-950" />
-                  </div>
-                  <h3 className="text-xl font-bold text-white mb-2">Connect Your Account</h3>
-                  <p className="text-xs text-zinc-400 max-w-[280px] mx-auto leading-relaxed">
-                    Authorize via Deriv OAuth. Rest assured, your credentials are saved in safe, encrypted cookies.
-                  </p>
-                </div>
-
-                <div className="flex flex-col gap-3">
-                  <LoginButton />
-                  <button
-                    onClick={enableDemoMode}
-                    className="w-full py-3.5 px-6 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-850 hover:border-zinc-750 active:scale-[0.98] transition-all text-emerald-400 font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <Cpu className="w-4 h-4 text-emerald-400 animate-pulse" />
-                    Explore Demo Terminal
-                  </button>
-                </div>
+                <motion.h1 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3, duration: 0.5 }}
+                  className="text-5xl sm:text-6xl lg:text-7xl font-black tracking-tighter leading-[1.1] mb-6 text-white"
+                >
+                  Trade with <br />
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-500 filter drop-shadow-[0_0_10px_rgba(52,211,153,0.3)]">
+                    Absolute Precision.
+                  </span>
+                </motion.h1>
                 
-                <div className="mt-6 flex items-center justify-center gap-1.5 text-[9px] text-zinc-500 font-bold uppercase tracking-wider">
-                  <Shield className="w-3.5 h-3.5 text-emerald-500/60" />
-                  SSL & AES-256 Encrypted Session Bridge
-                </div>
-              </div>
-            </div>
+                <motion.p 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4, duration: 0.5 }}
+                  className="text-zinc-400 text-base sm:text-lg leading-relaxed mb-10 max-w-xl font-medium"
+                >
+                  EchoMargin bridges the official Deriv API through a secure, latency-optimized Node server. Keep your private tokens isolated from the browser and execute algorithmic trades instantly.
+                </motion.p>
 
+                {/* Floating Trust Metrics */}
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5, duration: 0.5 }}
+                  className="grid grid-cols-2 gap-4 w-full max-w-lg"
+                >
+                  <div className="bg-zinc-900/50 backdrop-blur-md border border-zinc-800/50 rounded-2xl p-4 flex items-center gap-4 hover:bg-zinc-800/50 transition-colors">
+                    <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
+                      <Zap className="w-5 h-5 text-emerald-400" />
+                    </div>
+                    <div>
+                      <div className="text-white font-bold text-sm">Sub-50ms</div>
+                      <div className="text-zinc-500 text-[10px] uppercase tracking-wider font-bold">Latency Ticks</div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-zinc-900/50 backdrop-blur-md border border-zinc-800/50 rounded-2xl p-4 flex items-center gap-4 hover:bg-zinc-800/50 transition-colors">
+                    <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
+                      <Lock className="w-5 h-5 text-emerald-400" />
+                    </div>
+                    <div>
+                      <div className="text-white font-bold text-sm">HttpOnly</div>
+                      <div className="text-zinc-500 text-[10px] uppercase tracking-wider font-bold">Secure Sessions</div>
+                    </div>
+                  </div>
+                </motion.div>
+              </motion.div>
+
+              {/* Right Column: Portal Card */}
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.7, ease: "easeOut" }}
+                className="flex justify-center lg:justify-end w-full relative"
+              >
+                {/* Decorative background glow behind the card */}
+                <div className="absolute inset-0 bg-gradient-to-tr from-emerald-500/20 to-teal-500/20 rounded-[40px] blur-2xl transform scale-90 -z-10"></div>
+                
+                <div className="bg-zinc-900/70 backdrop-blur-2xl border border-zinc-800/80 rounded-[32px] p-8 sm:p-10 w-full max-w-md shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative overflow-hidden group">
+                  
+                  {/* Card inner top glow */}
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-1 bg-gradient-to-r from-transparent via-emerald-500 to-transparent opacity-50"></div>
+
+                  <div className="pt-2 mb-8 text-center relative z-10">
+                    <div className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-[0_0_30px_rgba(16,185,129,0.3)] mb-6 transform group-hover:rotate-6 transition-transform duration-500">
+                      <Cpu className="w-7 h-7 text-zinc-950" />
+                    </div>
+                    <h3 className="text-2xl font-extrabold text-white mb-2">Connect Terminal</h3>
+                    <p className="text-sm text-zinc-400 max-w-[280px] mx-auto leading-relaxed">
+                      Initialize secure handshake with the Deriv API infrastructure.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col gap-4 relative z-10">
+                    <LoginButton />
+                    
+                    <div className="relative flex items-center py-2">
+                      <div className="flex-grow border-t border-zinc-800"></div>
+                      <span className="flex-shrink-0 mx-4 text-zinc-600 text-xs font-bold uppercase">or test offline</span>
+                      <div className="flex-grow border-t border-zinc-800"></div>
+                    </div>
+
+                    <button
+                      onClick={enableDemoMode}
+                      className="w-full py-4 rounded-xl bg-zinc-950 hover:bg-zinc-900 border border-zinc-800 hover:border-zinc-700 active:scale-[0.98] transition-all text-emerald-400 font-extrabold text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-inner"
+                    >
+                      <LayoutDashboard className="w-4 h-4 text-emerald-500" />
+                      Explore Demo Environment
+                    </button>
+                  </div>
+                  
+                  <div className="mt-8 pt-6 border-t border-zinc-800/60 flex items-center justify-center gap-2 text-[10px] text-zinc-500 font-bold uppercase tracking-widest">
+                    <Shield className="w-4 h-4 text-emerald-500/50" />
+                    AES-256 Encrypted Connection
+                  </div>
+                </div>
+              </motion.div>
+
+            </div>
           </div>
 
           {/* Interactive Showcase Preview */}
