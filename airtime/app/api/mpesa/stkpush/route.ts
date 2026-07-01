@@ -18,8 +18,11 @@ export async function POST(req: Request) {
   try {
     const { phone, amount } = await req.json();
 
-    if (!phone || !amount) {
-      return NextResponse.json({ success: false, error: "Phone and amount are required." }, { status: 400 });
+    let formattedPhone = String(phone).trim();
+    if (formattedPhone.startsWith("+")) formattedPhone = formattedPhone.substring(1);
+    if (formattedPhone.startsWith("0")) formattedPhone = "254" + formattedPhone.substring(1);
+    if (!formattedPhone.startsWith("254")) {
+      return NextResponse.json({ success: false, error: "Invalid Kenyan phone number format." }, { status: 400 });
     }
 
     const token = await getMpesaToken();
@@ -35,9 +38,9 @@ export async function POST(req: Request) {
       Timestamp: timestamp,
       TransactionType: "CustomerPayBillOnline",
       Amount: Math.ceil(amount),
-      PartyA: phone,
+      PartyA: formattedPhone,
       PartyB: shortcode,
-      PhoneNumber: phone,
+      PhoneNumber: formattedPhone,
       CallBackURL: callbackUrl,
       AccountReference: "EchoAirtime",
       TransactionDesc: "Airtime Purchase",
@@ -56,7 +59,7 @@ export async function POST(req: Request) {
     }
 
     // Store pending transaction in DB
-    await storePendingTransaction(phone, amount, CheckoutRequestID);
+    await storePendingTransaction(formattedPhone, amount, CheckoutRequestID);
 
     return NextResponse.json({ success: true, CheckoutRequestID });
   } catch (err: unknown) {
