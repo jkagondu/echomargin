@@ -1,12 +1,15 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 const PRESETS = [20, 50, 100, 200, 500, 1000];
 
 type Step = "idle" | "processing" | "waiting" | "success" | "failed";
 
-export default function HomePage() {
+function HomeContent() {
+  const searchParams = useSearchParams();
+  const refCode = searchParams.get("ref");
   const [phone, setPhone] = useState("");
   const [amount, setAmount] = useState<number | null>(null);
   const [customAmount, setCustomAmount] = useState("");
@@ -58,7 +61,11 @@ export default function HomePage() {
       const res = await fetch("/api/mpesa/stkpush", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: phone.replace(/^0/, "254").replace(/^\+/, ""), amount: selectedAmount }),
+        body: JSON.stringify({ 
+          phone: phone.replace(/^0/, "254").replace(/^\+/, ""), 
+          amount: selectedAmount,
+          referralCode: refCode
+        }),
       });
       const data = await res.json();
       if (data.success) { setTxRef(data.CheckoutRequestID); setStep("waiting"); setPollCount(0); }
@@ -91,6 +98,9 @@ export default function HomePage() {
           </div>
         </div>
         <div className="flex items-center gap-4">
+          <Link href="/affiliate" className="hidden sm:flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-orange-500/20 to-pink-500/20 border border-orange-500/30 text-orange-300 text-xs font-bold hover:opacity-80 transition-opacity">
+            <span>🎁</span> Earn Airtime
+          </Link>
           <a href="#how" className="hidden sm:block text-zinc-400 hover:text-white text-sm font-medium transition-colors">How it works</a>
           <a href="#faq" className="hidden sm:block text-zinc-400 hover:text-white text-sm font-medium transition-colors">FAQ</a>
           <Link href="/admin" className="px-4 py-2 rounded-xl border border-green-700/40 text-green-400 text-xs font-bold hover:bg-green-900/20 transition-all hover:border-green-600/60 uppercase tracking-wider">
@@ -330,5 +340,13 @@ export default function HomePage() {
         <p className="text-zinc-700 text-[10px] mt-1">M-Pesa is a registered trademark of Safaricom PLC.</p>
       </footer>
     </div>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-black" />}>
+      <HomeContent />
+    </Suspense>
   );
 }
