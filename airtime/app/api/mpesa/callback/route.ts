@@ -21,6 +21,28 @@ export async function POST(req: Request) {
       const amount = getVal("Amount") as number;
       const phone = getVal("PhoneNumber") as string;
 
+      // SECURITY VERIFICATION: Ensure this transaction exists and is pending
+      const dbUrl = process.env.DATABASE_URL;
+      if (!dbUrl) throw new Error("No database URL");
+      const { Pool } = await import("pg");
+      const pool = new Pool({ connectionString: dbUrl, ssl: { rejectUnauthorized: false } });
+      
+      const txCheck = await pool.query("SELECT status FROM transactions WHERE checkout_id = $1 LIMIT 1", [checkoutId]);
+      
+      if (txCheck.rows.length === 0) {
+        await pool.end();
+        console.error("[SECURITY ALERT] Received callback for unknown Checkout ID:", checkoutId);
+        return NextResponse.json({ ResultCode: 0, ResultDesc: "Accepted" });
+      }
+      
+      if (txCheck.rows[0].status !== "pending") {
+        await pool.end();
+        console.error("[SECURITY ALERT] Duplicate or already processed callback for:", checkoutId);
+        return NextResponse.json({ ResultCode: 0, ResultDesc: "Accepted" });
+      }
+
+      await pool.end();
+
       // Get rate and calculate airtime
       const settingsRate = await getRate();
       const airtimeAmount = amount * (1 + settingsRate / 100);
