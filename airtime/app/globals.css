@@ -1,0 +1,133 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --green-primary: #00A550;
+  --green-dark: #007A3D;
+  --green-light: #00C964;
+  --green-glow: rgba(0, 165, 80, 0.3);
+  --bg-dark: #050e1a;
+  --bg-card: rgba(10, 25, 47, 0.85);
+  --border-subtle: rgba(0, 165, 80, 0.15);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg-dark);
+  color: #ffffff;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+@layer utilities {
+  .text-gradient-green {
+    background: linear-gradient(135deg, #00C964, #00A550, #007A3D);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .glass-card {
+    background: rgba(10, 25, 47, 0.75);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(0, 165, 80, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(0, 165, 80, 0.05), inset 0 1px 0 rgba(255,255,255,0.05);
+  }
+
+  .green-glow {
+    box-shadow: 0 0 30px rgba(0, 165, 80, 0.25), 0 0 60px rgba(0, 165, 80, 0.1);
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #00C964 0%, #00A550 50%, #007A3D 100%);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-primary::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+    transition: left 0.5s ease;
+  }
+
+  .btn-primary:hover::before { left: 100%; }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(0, 165, 80, 0.4); }
+  .btn-primary:active { transform: translateY(0); }
+
+  .input-field {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1.5px solid rgba(0, 165, 80, 0.2);
+    color: white;
+    transition: all 0.3s ease;
+  }
+
+  .input-field:focus {
+    outline: none;
+    border-color: #00A550;
+    background: rgba(0, 165, 80, 0.06);
+    box-shadow: 0 0 0 3px rgba(0, 165, 80, 0.15);
+  }
+
+  .amount-btn {
+    background: rgba(0, 165, 80, 0.06);
+    border: 1.5px solid rgba(0, 165, 80, 0.2);
+    transition: all 0.25s ease;
+  }
+
+  .amount-btn:hover, .amount-btn.active {
+    background: rgba(0, 165, 80, 0.2);
+    border-color: #00A550;
+    color: #00C964;
+    transform: scale(1.05);
+    box-shadow: 0 4px 15px rgba(0, 165, 80, 0.3);
+  }
+
+  .mesh-bg {
+    background: 
+      radial-gradient(ellipse 80% 60% at 20% 0%, rgba(0, 165, 80, 0.12) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 80% 100%, rgba(0, 120, 60, 0.1) 0%, transparent 60%),
+      linear-gradient(180deg, #050e1a 0%, #020a12 100%);
+  }
+
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px) scale(1); }
+  50% { transform: translateY(-20px) scale(1.02); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.animate-float { animation: float 6s ease-in-out infinite; }
+.animate-pulse-glow { animation: pulse-glow 3s ease-in-out infinite; }
+.animate-slide-up { animation: slide-up 0.6s ease-out forwards; }
+
+.stagger-1 { animation-delay: 0.1s; opacity: 0; animation-fill-mode: forwards; }
+.stagger-2 { animation-delay: 0.2s; opacity: 0; animation-fill-mode: forwards; }
+.stagger-3 { animation-delay: 0.3s; opacity: 0; animation-fill-mode: forwards; }
+.stagger-4 { animation-delay: 0.4s; opacity: 0; animation-fill-mode: forwards; }
+.stagger-5 { animation-delay: 0.5s; opacity: 0; animation-fill-mode: forwards; }
