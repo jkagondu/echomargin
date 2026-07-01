@@ -8,12 +8,19 @@ export async function GET() {
 
     const { Pool } = await import("pg");
     const pool = new Pool({ connectionString: dbUrl, ssl: { rejectUnauthorized: false } });
-    const res = await pool.query("SELECT value FROM settings WHERE key = 'airtime_rate' LIMIT 1");
+    const res = await pool.query("SELECT key, value FROM settings WHERE key IN ('airtime_rate', 'service_status')");
     await pool.end();
 
-    const rate = res.rows[0] ? parseFloat(res.rows[0].value) : 10;
-    return NextResponse.json({ rate });
+    let rate = 10;
+    let status = "active";
+
+    for (const row of res.rows) {
+      if (row.key === "airtime_rate") rate = parseFloat(row.value);
+      if (row.key === "service_status") status = row.value;
+    }
+
+    return NextResponse.json({ rate, status });
   } catch {
-    return NextResponse.json({ rate: 10 });
+    return NextResponse.json({ rate: 10, status: "active" });
   }
 }

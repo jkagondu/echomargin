@@ -12,6 +12,7 @@ export default function HomePage() {
   const [customAmount, setCustomAmount] = useState("");
   const [step, setStep] = useState<Step>("idle");
   const [rate, setRate] = useState(10); // Default bonus %, loaded from admin settings
+  const [serviceStatus, setServiceStatus] = useState("active");
   const [error, setError] = useState("");
   const [txRef, setTxRef] = useState("");
   const [pollCount, setPollCount] = useState(0);
@@ -23,7 +24,10 @@ export default function HomePage() {
   useEffect(() => {
     fetch("/api/settings")
       .then((r) => r.json())
-      .then((d) => { if (d.rate) setRate(d.rate); })
+      .then((d) => { 
+        if (d.rate) setRate(d.rate); 
+        if (d.status) setServiceStatus(d.status);
+      })
       .catch(() => {});
   }, []);
 
@@ -45,6 +49,7 @@ export default function HomePage() {
 
   const handleBuy = async () => {
     setError("");
+    if (serviceStatus === "paused") { setError("Service is temporarily paused for maintenance."); return; }
     if (!phone || phone.length < 9) { setError("Please enter a valid phone number."); return; }
     if (!selectedAmount || selectedAmount < 10) { setError("Minimum purchase is KES 10."); return; }
     if (selectedAmount > 10000) { setError("Maximum purchase is KES 10,000."); return; }
@@ -232,14 +237,18 @@ export default function HomePage() {
 
                 <button
                   onClick={handleBuy}
-                  disabled={!phone || !selectedAmount}
+                  disabled={!phone || !selectedAmount || serviceStatus === "paused"}
                   className="btn-primary w-full py-4 rounded-2xl text-white font-extrabold text-base disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none"
                 >
                   <span className="flex items-center justify-center gap-2">
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                    </svg>
-                    Pay with M-Pesa
+                    {serviceStatus === "paused" ? "Service Paused" : (
+                      <>
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                        Pay with M-Pesa
+                      </>
+                    )}
                   </span>
                 </button>
 

@@ -40,9 +40,12 @@ export default function AdminDashboard() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [rate, setRate] = useState(10);
   const [newRate, setNewRate] = useState("10");
+  const [serviceStatus, setServiceStatus] = useState("active");
   const [loading, setLoading] = useState(true);
   const [savingRate, setSavingRate] = useState(false);
+  const [savingStatus, setSavingStatus] = useState(false);
   const [rateMsg, setRateMsg] = useState("");
+  const [statusMsg, setStatusMsg] = useState("");
   const [filter, setFilter] = useState("all");
   const [activeTab, setActiveTab] = useState<"overview" | "transactions" | "settings">("overview");
   const router = useRouter();
@@ -63,7 +66,13 @@ export default function AdminDashboard() {
       const [statsData, txData, settingsData] = await Promise.all([statsRes.json(), txRes.json(), settingsRes.json()]);
       if (statsData.stats) setStats(statsData.stats);
       if (txData.transactions) setTransactions(txData.transactions);
-      if (settingsData.rate) { setRate(settingsData.rate); setNewRate(String(settingsData.rate)); }
+      if (settingsData.rate !== undefined) { 
+        setRate(settingsData.rate); 
+        setNewRate(String(settingsData.rate)); 
+      }
+      if (settingsData.status) {
+        setServiceStatus(settingsData.status);
+      }
     } catch { router.push("/admin"); }
     finally { setLoading(false); }
   }, [router]);
@@ -83,6 +92,22 @@ export default function AdminDashboard() {
       else setRateMsg("✗ Failed to update rate.");
     } catch { setRateMsg("✗ Network error."); }
     finally { setSavingRate(false); setTimeout(() => setRateMsg(""), 3000); }
+  };
+
+  const toggleStatus = async () => {
+    setSavingStatus(true); setStatusMsg("");
+    const nextStatus = serviceStatus === "active" ? "paused" : "active";
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: headers(),
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      const data = await res.json();
+      if (data.success) { setServiceStatus(nextStatus); setStatusMsg("✓ Status updated!"); }
+      else setStatusMsg("✗ Failed to update.");
+    } catch { setStatusMsg("✗ Network error."); }
+    finally { setSavingStatus(false); setTimeout(() => setStatusMsg(""), 3000); }
   };
 
   const logout = () => { localStorage.removeItem("admin_token"); router.push("/admin"); };
@@ -282,6 +307,34 @@ export default function AdminDashboard() {
                   <span className="text-zinc-400">Customer pays KES 100</span>
                   <span className="text-green-400 font-bold">Gets KES {(100 * (1 + parseFloat(newRate || "0") / 100)).toFixed(0)} airtime</span>
                 </div>
+              </div>
+            </div>
+
+            {/* Service Status Toggle */}
+            <div className="glass-card rounded-2xl p-8 mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-white font-bold mb-1">Service Status (Kill Switch)</h3>
+                  <p className="text-zinc-500 text-sm">Instantly pause or resume all M-Pesa airtime purchases.</p>
+                </div>
+                <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${serviceStatus === "active" ? "bg-green-900/30 text-green-400 border border-green-700/50" : "bg-red-900/30 text-red-400 border border-red-700/50"}`}>
+                  {serviceStatus}
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-4">
+                <button 
+                  onClick={toggleStatus} 
+                  disabled={savingStatus}
+                  className={`px-6 py-3.5 rounded-xl font-bold text-sm disabled:opacity-50 transition-colors ${
+                    serviceStatus === "active" 
+                      ? "bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30" 
+                      : "bg-green-500/20 text-green-400 hover:bg-green-500/30 border border-green-500/30"
+                  }`}
+                >
+                  {savingStatus ? "Saving..." : serviceStatus === "active" ? "Pause Service" : "Resume Service"}
+                </button>
+                {statusMsg && <p className={`text-sm font-medium ${statusMsg.startsWith("✓") ? "text-green-400" : "text-red-400"}`}>{statusMsg}</p>}
               </div>
             </div>
 
