@@ -52,6 +52,9 @@ export async function POST(req: Request) {
 
       // Send airtime via Africa's Talking
       await sendAirtime(String(phone), airtimeAmount);
+      
+      // SECURITY: Check AT balance and alert Admin if low
+      await checkAdminBalance();
 
     } else {
       // Payment failed/cancelled
@@ -118,4 +121,32 @@ async function sendAirtime(phone: string, amount: number) {
     });
     console.log(`[AIRTIME] Sent KES ${amount} to ${phone}`);
   } catch (e) { console.error("[AIRTIME ERROR]", e); }
+}
+
+async function checkAdminBalance() {
+  try {
+    const adminPhone = process.env.ADMIN_PHONE;
+    if (!adminPhone) return;
+
+    const AfricasTalking = (await import("africastalking")).default;
+    const at = AfricasTalking({
+      apiKey: process.env.AT_API_KEY!,
+      username: process.env.AT_USERNAME!,
+    });
+    
+    // Fetch balance
+    const appData = await at.APPLICATION.fetchApplicationData();
+    const balanceStr = appData.UserData.balance; // e.g. "KES 1500.00"
+    const balanceAmount = parseFloat(balanceStr.replace(/[^0-9.-]+/g,""));
+
+    if (balanceAmount < 1000) {
+      await at.SMS.send({
+        to: [`+${adminPhone.replace(/^0/, "254").replace(/^\+/, "")}`],
+        message: `🚨 ECHO AIRTIME ALERT: Your Africa's Talking wallet balance is critically low. Current balance is ${balanceStr}. Please top up immediately to prevent service interruption.`,
+      });
+      console.log(`[ALERT] Low balance SMS sent to Admin. Balance: ${balanceStr}`);
+    }
+  } catch (e) {
+    console.error("[BALANCE CHECK ERROR]", e);
+  }
 }
