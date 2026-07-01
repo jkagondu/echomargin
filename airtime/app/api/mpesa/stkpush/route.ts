@@ -16,7 +16,7 @@ async function getMpesaToken(): Promise<string> {
 
 export async function POST(req: Request) {
   try {
-    const { phone, amount } = await req.json();
+    const { phone, amount, referralCode } = await req.json();
 
     let formattedPhone = String(phone).trim();
     if (formattedPhone.startsWith("+")) formattedPhone = formattedPhone.substring(1);
@@ -59,7 +59,7 @@ export async function POST(req: Request) {
     }
 
     // Store pending transaction in DB
-    await storePendingTransaction(formattedPhone, amount, CheckoutRequestID);
+    await storePendingTransaction(formattedPhone, amount, CheckoutRequestID, referralCode);
 
     return NextResponse.json({ success: true, CheckoutRequestID });
   } catch (err: unknown) {
@@ -69,15 +69,15 @@ export async function POST(req: Request) {
   }
 }
 
-async function storePendingTransaction(phone: string, amount: number, checkoutId: string) {
+async function storePendingTransaction(phone: string, amount: number, checkoutId: string, referralCode?: string) {
   try {
     const dbUrl = process.env.DATABASE_URL;
     if (!dbUrl) return;
     const { Pool } = await import("pg");
     const pool = new Pool({ connectionString: dbUrl, ssl: { rejectUnauthorized: false } });
     await pool.query(
-      "INSERT INTO transactions (phone, amount, airtime_amount, status, checkout_id, created_at) VALUES ($1, $2, $3, $4, $5, NOW())",
-      [phone, amount, 0, "pending", checkoutId]
+      "INSERT INTO transactions (phone, amount, airtime_amount, status, checkout_id, referral_code_used, created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW())",
+      [phone, amount, 0, "pending", checkoutId, referralCode || null]
     );
     await pool.end();
   } catch (e) { console.error("[DB]", e); }

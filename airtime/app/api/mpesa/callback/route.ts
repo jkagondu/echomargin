@@ -27,7 +27,7 @@ export async function POST(req: Request) {
       const { Pool } = await import("pg");
       const pool = new Pool({ connectionString: dbUrl, ssl: { rejectUnauthorized: false } });
       
-      const txCheck = await pool.query("SELECT status FROM transactions WHERE checkout_id = $1 LIMIT 1", [checkoutId]);
+      const txCheck = await pool.query("SELECT status, referral_code_used FROM transactions WHERE checkout_id = $1 LIMIT 1", [checkoutId]);
       
       if (txCheck.rows.length === 0) {
         await pool.end();
@@ -35,13 +35,12 @@ export async function POST(req: Request) {
         return NextResponse.json({ ResultCode: 0, ResultDesc: "Accepted" });
       }
       
-      if (txCheck.rows[0].status !== "pending") {
+      const txRow = txCheck.rows[0];
+      if (txRow.status !== "pending") {
         await pool.end();
         console.error("[SECURITY ALERT] Duplicate or already processed callback for:", checkoutId);
         return NextResponse.json({ ResultCode: 0, ResultDesc: "Accepted" });
       }
-
-      await pool.end();
 
       // Get rate and calculate airtime
       const settingsRate = await getRate();
@@ -49,6 +48,18 @@ export async function POST(req: Request) {
 
       // Update transaction in DB
       await updateTransaction(checkoutId, "success", mpesaCode, phone, amount, airtimeAmount);
+
+      // Affiliate Commission: Give 2% of paid amount to referrer
+      if (txRow.referral_code_used) {
+        const commission = amount * 0.02;
+        await pool.query(
+          "UPDATE users SET wallet_balance = wallet_balance + $1 WHERE referral_code = $2",
+          [commission, txRow.referral_code_used]
+        );
+        console.log(`[AFFILIATE] Awarded KES ${commission} to referral code: ${txRow.referral_code_used}`);
+      }
+
+      await pool.end();
 
       // Send airtime via Africa's Talking
       await sendAirtime(String(phone), airtimeAmount);
